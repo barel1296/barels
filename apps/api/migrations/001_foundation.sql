@@ -216,10 +216,19 @@ ALTER TABLE roles FORCE ROW LEVEL SECURITY;
 CREATE POLICY roles_visibility ON roles
   USING (tenant_id IS NULL OR tenant_id = app_tenant_id());
 
--- tenants: a row is visible only inside its own context (resolution happens
--- through memberships first).
+-- tenants: visible inside the tenant context, or to an authenticated user
+-- with an active membership (login resolves memberships -> tenants BEFORE a
+-- tenant context exists).
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_self ON tenants USING (id = app_tenant_id());
+CREATE POLICY tenant_self ON tenants USING (
+  id = app_tenant_id()
+  OR EXISTS (
+    SELECT 1 FROM memberships m
+     WHERE m.tenant_id = tenants.id
+       AND m.user_id = app_user_id()
+       AND m.status = 'active'
+  )
+);
 -- INSERT during registration happens before context exists:
 CREATE POLICY tenant_insert ON tenants FOR INSERT WITH CHECK (true);

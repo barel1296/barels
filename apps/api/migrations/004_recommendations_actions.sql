@@ -49,9 +49,11 @@ CREATE TABLE actions (
 );
 CREATE INDEX ON actions (tenant_id, status, created_at DESC);
 
--- Only one in-flight (awaiting/approved/executing) action per target entity.
+-- Only one in-flight (awaiting/approved/executing) action per target entity
+-- AND kind: a recommendation may pair complementary kinds (budget change +
+-- creative rotation) on one entity, but duplicate same-kind actions conflict.
 CREATE UNIQUE INDEX actions_one_in_flight_per_target
-  ON actions (tenant_id, (target ->> 'entityId'))
+  ON actions (tenant_id, (target ->> 'entityId'), kind)
   WHERE status IN ('awaiting_approval', 'approved', 'executing');
 
 CREATE TABLE approvals (

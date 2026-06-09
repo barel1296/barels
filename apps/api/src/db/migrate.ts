@@ -5,8 +5,11 @@ import { join } from 'node:path';
 import { Pool } from 'pg';
 
 async function main(): Promise<void> {
+  // Migrations run as the OWNER role (gros), not the RLS-bound app role.
   const databaseUrl =
-    process.env.DATABASE_URL ?? 'postgres://gros:gros@localhost:5432/gros';
+    process.env.DATABASE_URL_OWNER ??
+    process.env.DATABASE_URL ??
+    'postgres://gros:gros@localhost:5432/gros';
   const dir = join(__dirname, '..', '..', 'migrations');
   const pool = new Pool({ connectionString: databaseUrl });
   const client = await pool.connect();

@@ -255,10 +255,24 @@ class PgMessageRepo:
         from ..db import worker_conn
 
         with worker_conn(self.tenant_id) as conn:
+            # seq exposed to agents is SESSION-RELATIVE (the thread is
+            # append-only, so row_number over the global identity is stable);
+            # the global identity column only provides ordering.
             rows = conn.execute(
                 """SELECT id, agent, type, claim, payload, evidence_ids, confidence,
-                          directed_to, in_reply_to, seq
+                          directed_to, in_reply_to,
+                          row_number() OVER (ORDER BY seq) AS seq
                      FROM agent_messages WHERE session_id = %s ORDER BY seq""",
                 (session_id,),
             ).fetchall()
-            return [dict(r) for r in rows]
+            out: list[dict[str, Any]] = []
+            for r in rows:
+                m = dict(r)
+                # psycopg returns uuid.UUID objects; the protocol layer and
+                # pydantic models work with strings.
+                m["id"] = str(m["id"])
+                m["in_reply_to"] = str(m["in_reply_to"]) if m["in_reply_to"] else None
+                m["evidence_ids"] = [str(e) for e in (m["evidence_ids"] or [])]
+                m["seq"] = int(m["seq"])
+                out.append(m)
+            return out

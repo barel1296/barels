@@ -31,9 +31,12 @@ async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Refusing to seed in production');
   }
+  // Dev seed runs as the owner role (cross-tenant bootstrap inserts).
   const pool = new Pool({
     connectionString:
-      process.env.DATABASE_URL ?? 'postgres://gros:gros@localhost:5432/gros',
+      process.env.DATABASE_URL_OWNER ??
+      process.env.DATABASE_URL ??
+      'postgres://gros:gros@localhost:5432/gros',
   });
   const c = await pool.connect();
   try {
