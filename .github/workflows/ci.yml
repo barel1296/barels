@@ -49,8 +49,8 @@ jobs:
       - run: pnpm --filter @gros/shared build
       - name: Create non-superuser app role
         run: |
-          PGPASSWORD=gros psql -h localhost -U gros -d gros \
-            -f infra/postgres/init/01-app-role.sql
+          PGPASSWORD=gros psql -h localhost -U gros -d gros -c \
+            "CREATE ROLE gros_app LOGIN PASSWORD 'gros_app' NOSUPERUSER NOCREATEDB NOCREATEROLE"
       - name: Run migrations (owner role)
         run: pnpm --filter @gros/api run db:migrate
         env:

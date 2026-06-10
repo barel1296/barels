@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import uuid4
 
-from .artifacts import ArtifactStore
+from .artifacts import ArtifactStoreProtocol
 
 
 @dataclass
@@ -93,7 +93,7 @@ class InMemoryEvidenceStore:
 class PgEvidenceStore:
     """Production implementation: PG row + artifact snapshot, append-only."""
 
-    def __init__(self, tenant_id: str, session_id: str | None, artifacts: ArtifactStore):
+    def __init__(self, tenant_id: str, session_id: str | None, artifacts: ArtifactStoreProtocol):
         self.tenant_id = tenant_id
         self.session_id = session_id
         self.artifacts = artifacts

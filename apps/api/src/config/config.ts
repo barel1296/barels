@@ -32,7 +32,9 @@ export function loadConfig(): AppConfig {
     if (
       parsed.data.NODE_ENV === 'production' &&
       (parsed.data.JWT_ACCESS_SECRET.startsWith('dev-only') ||
-        parsed.data.SERVICE_TOKEN.startsWith('dev-service'))
+        parsed.data.JWT_REFRESH_SECRET.startsWith('dev-only') ||
+        parsed.data.SERVICE_TOKEN.startsWith('dev-service') ||
+        parsed.data.CREDENTIALS_MASTER_KEY.startsWith('dev-master'))
     ) {
       throw new Error('Refusing to start in production with dev secrets');
     }

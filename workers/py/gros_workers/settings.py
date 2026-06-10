@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     worker_api_url: str = "http://localhost:3001"
     service_token: str = "dev-service-token-change-me"
     artifact_dir: str = "./var/artifacts"
+    artifact_s3_bucket: str = ""
+    artifact_s3_endpoint: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     llm_fast_model: str = "claude-haiku-4-5-20251001"

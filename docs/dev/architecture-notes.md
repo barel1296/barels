@@ -53,9 +53,9 @@ the approve response says so explicitly.
 | Spec said | Built | Why |
 |---|---|---|
 | BullMQ/Redis queues | Postgres job queue (`FOR UPDATE SKIP LOCKED`) + outbox table | One fewer moving part; jobs are transactional with the rows they produce; Redis stays in compose for caching/future BullMQ. Revisit at volume. |
-| argon2id password hashing | bcryptjs (cost 12) | Pure-JS, no native build risk across dev machines/CI. Swap to argon2id before production exposure (known gap). |
+| argon2id password hashing | argon2id (@node-rs/argon2, OWASP params); legacy bcrypt hashes verify and upgrade transparently on login | Implemented in the hardening pass; bcryptjs retained only for legacy verification. |
 | `metric_definitions.formula_sql` raw SQL templates | Structured `formula` JSONB (`{table,timeCol,valueExpr}`) | Safe composition: value expressions live only in reviewed migrations; runtime only binds parameters against allowlisted dimensions. |
-| S3/MinIO artifact store | Local-filesystem `ArtifactStore` behind the same interface | No Docker-daemon S3 in the build environment; interface unchanged for the swap. |
+| S3/MinIO artifact store | FS store by default; S3-compatible store selected by `ARTIFACT_S3_BUCKET` (boto3 via the `s3` extra) | Same `ArtifactStoreProtocol`; FS remains the zero-dependency dev default. |
 | SSE via `/v1/stream` per tenant | Per-session SSE + 2.5s polling fallback in the UI | Simpler first cut; LISTEN/NOTIFY upgrade path noted in code. |
 | One in-flight action per entity | Per entity **and kind** | A recommendation legitimately pairs budget_change + creative_rotation on one campaign (found in live testing). |
 | Anthropic/OpenAI SDKs | httpx REST adapters | No SDK version churn; ~80 lines each; identical failover semantics. |
@@ -64,7 +64,7 @@ the approve response says so explicitly.
 ## Findings from live verification (sandbox Postgres 16)
 
 - **Superuser bypasses RLS** — hence the `gros_app` non-superuser role
-  (`infra/postgres/init/01-app-role.sql`, migration 006 grants). The dev
+  (`infra/postgres/init/01-app-role.sh`, migration 006 grants). The dev
   compose's `POSTGRES_USER` must never be the app's connection.
 - **Login-time tenant visibility**: the `tenants` RLS policy needed a
   membership-based clause because login resolves memberships→tenants before

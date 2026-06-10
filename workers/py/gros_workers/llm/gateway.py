@@ -20,7 +20,7 @@ from typing import Protocol, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from ..artifacts import ArtifactStore
+from ..artifacts import ArtifactStoreProtocol, make_artifact_store
 from ..settings import get_settings
 from .providers import (
     AnthropicProvider,
@@ -149,7 +149,7 @@ class GatewayCall:
 class LLMGateway:
     providers: list[LLMProvider]
     ledger: CostLedger
-    artifacts: ArtifactStore = field(default_factory=ArtifactStore)
+    artifacts: ArtifactStoreProtocol = field(default_factory=make_artifact_store)
     eval_mode: bool = False
 
     @classmethod

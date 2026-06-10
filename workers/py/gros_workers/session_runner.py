@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from .agents.roster import ROSTER
-from .artifacts import ArtifactStore
+from .artifacts import make_artifact_store
 from .db import worker_conn
 from .evidence import PgEvidenceStore
 from .llm.gateway import LLMGateway
@@ -58,7 +58,7 @@ def run_session_job(tenant_id: str, session_id: str) -> SessionData:
     sessions = PgSessionRepo(tenant_id)
     session = sessions.load(session_id)
 
-    artifacts = ArtifactStore()
+    artifacts = make_artifact_store()
     evidence = PgEvidenceStore(tenant_id, session_id, artifacts)
     messages = PgMessageRepo(
         tenant_id, validator_factory=lambda: ProtocolValidator(evidence.known_ids())
