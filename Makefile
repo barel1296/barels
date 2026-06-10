@@ -1,4 +1,8 @@
-.PHONY: infra-up infra-down migrate seed dev-api dev-web worker check-infra qa
+.PHONY: infra-up infra-down migrate seed dev-api dev-web worker check-infra qa demo
+
+# One-command demo: infra + schemas + seed + all three services.
+demo:
+	bash scripts/demo.sh
 
 infra-up:
 	docker compose -f infra/docker-compose.dev.yml up -d

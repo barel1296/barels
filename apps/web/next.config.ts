@@ -1,13 +1,9 @@
 import type { NextConfig } from 'next';
 
-const apiUrl = process.env.API_INTERNAL_URL ?? 'http://localhost:3001';
-
 const nextConfig: NextConfig = {
   output: 'standalone',
-  async rewrites() {
-    // Same-origin proxy to the API: cookies flow without CORS gymnastics.
-    return [{ source: '/api/v1/:path*', destination: `${apiUrl}/v1/:path*` }];
-  },
+  // API proxying happens at runtime via src/app/api/v1/[...path]/route.ts
+  // (reads API_INTERNAL_URL per request — no build-time coupling).
   async headers() {
     return [
       {

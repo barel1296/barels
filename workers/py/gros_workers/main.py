@@ -81,6 +81,17 @@ def main() -> None:
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
     log.info("worker started")
+
+    import os
+
+    if os.environ.get("SEED_DEMO") == "true":
+        try:
+            from .seed.generate import seed_if_empty
+
+            seed_if_empty()
+            log.info("demo data bootstrap completed (or already present)")
+        except Exception:  # noqa: BLE001 — demo bootstrap must not kill the worker
+            log.exception("demo data bootstrap failed")
     last_schedule = 0.0
     while _running:
         if time.monotonic() - last_schedule > SCHEDULE_EVERY_SEC:

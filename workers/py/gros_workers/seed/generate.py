@@ -237,6 +237,36 @@ def seed_demo_session() -> None:
     print(f"demo session {session_id}: {result.phase}/{result.status}")
 
 
+def seed_if_empty(max_wait_sec: int = 180) -> None:
+    """Hosted-demo bootstrap: idempotent, waits for ClickHouse and the demo
+    tenant (seeded by the API) to be ready. Only runs when SEED_DEMO=true."""
+    import time
+
+    deadline = time.monotonic() + max_wait_sec
+    while time.monotonic() < deadline:
+        try:
+            client = _ch_client()
+            count = client.command(
+                "SELECT count() FROM spend_metrics_daily WHERE tenant_id = %(t)s",
+                parameters={"t": TENANT},
+            )
+            with worker_conn(TENANT) as conn:
+                tenant = conn.execute(
+                    "SELECT 1 FROM tenants WHERE id = %s", (TENANT,)
+                ).fetchone()
+            if tenant is None:
+                time.sleep(5)  # API seeds the tenant on its own boot
+                continue
+            if int(count or 0) == 0:
+                generate_clickhouse()
+                enqueue_detection()
+            seed_demo_session()
+            return
+        except Exception:  # noqa: BLE001 — stores may still be booting
+            time.sleep(5)
+    print("seed_if_empty: gave up waiting for stores; will not retry")
+
+
 def main() -> None:
     generate_clickhouse()
     enqueue_detection()

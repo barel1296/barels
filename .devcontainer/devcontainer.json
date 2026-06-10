@@ -1,0 +1,18 @@
+{
+  "name": "GROS demo",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "GROS web",
+      "onAutoForward": "openPreview",
+      "visibility": "public"
+    },
+    "3001": { "label": "GROS api", "onAutoForward": "silent" }
+  },
+  "hostRequirements": { "cpus": 4 }
+}

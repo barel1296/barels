@@ -1,0 +1,149 @@
+# Render Blueprint — one-click hosted demo of GROS.
+#
+# Usage: Render Dashboard → New → Blueprint → connect this repo, pick the
+# branch → Apply. Render builds the Docker images from GitHub, provisions
+# Postgres, and wires everything below. The public URL is the `gros-web`
+# service (https://gros-web-XXXX.onrender.com).
+#
+# Demo bootstrap is automatic: migrations run pre-deploy, the API seeds the
+# demo tenant (ALLOW_DEMO_SEED), the worker seeds ClickHouse demo data and
+# the showcase War Room session (SEED_DEMO). Login: demo@gros.dev /
+# demo-password-123 — change or disable seeding for anything beyond a demo.
+#
+# RLS note: Render's managed-Postgres user is a NON-superuser owner, and all
+# tenant tables use FORCE ROW LEVEL SECURITY — so RLS applies to this single
+# role (only superusers bypass FORCE RLS). Single-role mode is therefore safe
+# here; the split-role setup (gros/gros_app) remains for self-managed PG.
+#
+# Cost (at time of writing): 3 × starter services + ClickHouse disk ≈ $25/mo;
+# Postgres free tier for the demo. ANTHROPIC_API_KEY is optional — without it
+# the seeded session, dashboards, detection and approvals all work; live
+# agent investigations fail loudly by design.
+
+databases:
+  - name: gros-postgres
+    plan: free
+    databaseName: gros
+    user: gros
+
+services:
+  # ── ClickHouse (private service) ────────────────────────────────────────
+  - type: pserv
+    name: gros-clickhouse
+    runtime: image
+    image:
+      url: docker.io/clickhouse/clickhouse-server:24.8-alpine
+    plan: starter
+    disk:
+      name: ch-data
+      mountPath: /var/lib/clickhouse
+      sizeGB: 10
+    envVars:
+      - key: CLICKHOUSE_DB
+        value: gros
+      - key: CLICKHOUSE_USER
+        value: gros
+      - key: CLICKHOUSE_PASSWORD
+        generateValue: true
+
+  # ── API ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: gros-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /healthz
+    preDeployCommand: node dist/db/migrate.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PORT
+        value: "10000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gros-postgres
+          property: connectionString
+      - key: DATABASE_URL_OWNER
+        fromDatabase:
+          name: gros-postgres
+          property: connectionString
+      # Private-service addresses are <service-name>:<port> inside Render.
+      - key: CLICKHOUSE_URL
+        value: http://gros-clickhouse:8123
+      - key: CLICKHOUSE_DB
+        value: gros
+      - key: CLICKHOUSE_USER
+        value: gros
+      - key: CLICKHOUSE_PASSWORD
+        fromService:
+          name: gros-clickhouse
+          type: pserv
+          envVarKey: CLICKHOUSE_PASSWORD
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: SERVICE_TOKEN
+        generateValue: true
+      - key: CREDENTIALS_MASTER_KEY
+        generateValue: true
+      - key: ALLOW_DEMO_SEED
+        value: "true"
+
+  # ── Worker (agents, detection, syncs) ───────────────────────────────────
+  - type: worker
+    name: gros-worker
+    runtime: docker
+    dockerfilePath: workers/py/Dockerfile
+    dockerContext: .
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gros-postgres
+          property: connectionString
+      - key: CLICKHOUSE_URL
+        value: http://gros-clickhouse:8123
+      - key: CLICKHOUSE_DB
+        value: gros
+      - key: CLICKHOUSE_USER
+        value: gros
+      - key: CLICKHOUSE_PASSWORD
+        fromService:
+          name: gros-clickhouse
+          type: pserv
+          envVarKey: CLICKHOUSE_PASSWORD
+      - key: WORKER_API_URL
+        value: http://gros-api:10000
+      - key: SERVICE_TOKEN
+        fromService:
+          name: gros-api
+          type: web
+          envVarKey: SERVICE_TOKEN
+      - key: CREDENTIALS_MASTER_KEY
+        fromService:
+          name: gros-api
+          type: web
+          envVarKey: CREDENTIALS_MASTER_KEY
+      - key: ARTIFACT_DIR
+        value: /tmp/artifacts
+      - key: SEED_DEMO
+        value: "true"
+      # Optional: enables LIVE agent investigations (the seeded showcase
+      # session works without it). Set in the dashboard when prompted.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  # ── Web ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: gros-web
+    runtime: docker
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: .
+    plan: starter
+    envVars:
+      - key: API_INTERNAL_URL
+        value: http://gros-api:10000
+      - key: PORT
+        value: "3000"

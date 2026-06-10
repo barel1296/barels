@@ -27,9 +27,12 @@ export const SEED_IDS = {
   creativeC: 'aaaaaaaa-0000-4000-8000-000000000022',
 };
 
-async function main(): Promise<void> {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Refusing to seed in production');
+export async function seedDemo(): Promise<void> {
+  // Demo seeding in production requires an explicit opt-in (hosted demo
+  // deployments set ALLOW_DEMO_SEED=true). It only ever creates the fixed
+  // demo tenant and is idempotent — it skips when the tenant exists.
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
+    throw new Error('Refusing to seed in production without ALLOW_DEMO_SEED=true');
   }
   // Dev seed runs as the owner role (cross-tenant bootstrap inserts).
   const pool = new Pool({
@@ -202,7 +205,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  seedDemo().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
