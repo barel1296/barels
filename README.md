@@ -65,6 +65,6 @@ Full guide: [docs/dev/local-setup.md](./docs/dev/local-setup.md)
 
 ## QA
 
-`make qa` — eslint, tsc, jest/vitest (27 JS/TS tests), next build, ruff, mypy,
-pytest (39 tests incl. the golden-incident harness with a release-blocking
+`make qa` — eslint, tsc, jest/vitest (27 unit + 9 live-Postgres e2e tests), next build, ruff, mypy,
+pytest (50 tests incl. the golden-incident harness with a release-blocking
 zero-fabrication gate).
