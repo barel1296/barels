@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     llm_fast_model: str = "claude-haiku-4-5-20251001"
     llm_frontier_model: str = "claude-sonnet-4-6"
+    credentials_master_key: str = "dev-master-key-32-bytes-change!!"
     worker_id: str = "worker-1"
 
     model_config = {"env_file": ".env", "extra": "ignore"}

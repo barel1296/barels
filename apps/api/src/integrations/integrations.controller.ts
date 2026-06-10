@@ -165,6 +165,59 @@ export class IntegrationsController {
     return { ok: true };
   }
 
+  @Post('integrations/:id/sync')
+  @RequirePermission('integrations:manage')
+  async triggerSync(@CurrentAuth() auth: AuthContext, @Param('id') id: string) {
+    const integration = await this.db.queryOne<{ id: string }>(
+      { tenantId: auth.tenantId, userId: auth.userId },
+      `SELECT id FROM integrations WHERE id = $1 AND tenant_id = $2 AND credentials_enc IS NOT NULL`,
+      [id, auth.tenantId],
+    );
+    if (!integration) throw new NotFoundException('Integration not found or has no credentials');
+    await this.db.query(
+      { tenantId: auth.tenantId, userId: auth.userId },
+      `INSERT INTO jobs (tenant_id, kind, payload) VALUES ($1, 'run_sync', $2)`,
+      [auth.tenantId, JSON.stringify({ integrationId: id, kind: 'incremental' })],
+    );
+    await this.audit.write(auth, {
+      event: 'integration.sync_triggered',
+      objectType: 'integration',
+      objectId: id,
+    });
+    return { queued: true };
+  }
+
+  @Post('integrations/:id/backfill')
+  @RequirePermission('integrations:manage')
+  async triggerBackfill(
+    @CurrentAuth() auth: AuthContext,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(z.object({
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    })))
+    body: { from: string; to: string },
+  ) {
+    const integration = await this.db.queryOne<{ id: string }>(
+      { tenantId: auth.tenantId, userId: auth.userId },
+      `SELECT id FROM integrations WHERE id = $1 AND tenant_id = $2 AND credentials_enc IS NOT NULL`,
+      [id, auth.tenantId],
+    );
+    if (!integration) throw new NotFoundException('Integration not found or has no credentials');
+    await this.db.query(
+      { tenantId: auth.tenantId, userId: auth.userId },
+      `INSERT INTO jobs (tenant_id, kind, payload) VALUES ($1, 'run_sync', $2)`,
+      [auth.tenantId, JSON.stringify({ integrationId: id, kind: 'backfill', window: body })],
+    );
+    await this.audit.write(auth, {
+      event: 'integration.backfill_triggered',
+      objectType: 'integration',
+      objectId: id,
+      after: body,
+    });
+    return { queued: true };
+  }
+
   @Get('integrations/:id/sync-runs')
   @RequirePermission('metrics:read')
   async syncRuns(@CurrentAuth() auth: AuthContext, @Param('id') id: string) {
