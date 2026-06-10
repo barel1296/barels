@@ -57,6 +57,10 @@ step "ensuring dependencies are installed"
 [ -d node_modules ] || pnpm install || fail "pnpm install"
 [ -d workers/py/.venv ] || (cd workers/py && uv sync --all-extras) || fail "uv sync"
 
+step "building the shared package (@gros/shared)"
+pnpm --filter @gros/shared build > var/log/shared-build.log 2>&1 \
+  || fail "shared package build" var/log/shared-build.log
+
 step "applying Postgres migrations"
 pnpm db:migrate > var/log/migrate.log 2>&1 || fail "postgres migrations" var/log/migrate.log
 step "applying ClickHouse schema"
