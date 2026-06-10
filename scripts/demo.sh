@@ -90,7 +90,8 @@ print('anomalies:', run_detection_for_tenant('aaaaaaaa-0000-4000-8000-0000000000
 ") >> var/log/seed-ch.log 2>&1 || true
 
 step "starting the web app"
-(cd apps/web && nohup pnpm dev > ../../var/log/web.log 2>&1 &)
+(cd apps/web && API_INTERNAL_URL=http://127.0.0.1:3001 nohup pnpm dev \
+  > ../../var/log/web.log 2>&1 &)
 web_ok=""
 for i in $(seq 1 45); do
   curl -fsS localhost:3000/login >/dev/null 2>&1 && { web_ok=1; break; }

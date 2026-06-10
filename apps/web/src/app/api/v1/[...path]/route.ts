@@ -9,7 +9,8 @@ import type { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 function apiBase(): string {
-  const raw = process.env.API_INTERNAL_URL ?? 'http://localhost:3001';
+  // 127.0.0.1 (not "localhost") avoids IPv6-first resolution surprises.
+  const raw = process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:3001';
   return raw.includes('://') ? raw.replace(/\/$/, '') : `http://${raw}`;
 }
 
@@ -25,15 +26,33 @@ async function proxy(
   headers.delete('connection');
 
   const hasBody = !['GET', 'HEAD'].includes(req.method);
-  const upstream = await fetch(url, {
-    method: req.method,
-    headers,
-    body: hasBody ? req.body : undefined,
-    redirect: 'manual',
-    // Node fetch requires half-duplex for streamed request bodies.
-    // @ts-expect-error -- duplex is a Node fetch extension
-    duplex: hasBody ? 'half' : undefined,
-  });
+  // SSE streams legitimately stay open; everything else must answer fast.
+  const isStream = path[path.length - 1] === 'stream';
+  let upstream: Response;
+  try {
+    upstream = await fetch(url, {
+      method: req.method,
+      headers,
+      body: hasBody ? req.body : undefined,
+      redirect: 'manual',
+      signal: isStream ? undefined : AbortSignal.timeout(25_000),
+      // Node fetch requires half-duplex for streamed request bodies.
+      // @ts-expect-error -- duplex is a Node fetch extension
+      duplex: hasBody ? 'half' : undefined,
+    });
+  } catch (err) {
+    // A hang or refused connection becomes a visible, diagnosable error
+    // instead of an infinite spinner.
+    return Response.json(
+      {
+        type: 'about:blank',
+        title: 'API unreachable',
+        status: 502,
+        detail: `proxy could not reach ${apiBase()}: ${err instanceof Error ? err.message : String(err)}`,
+      },
+      { status: 502, headers: { 'content-type': 'application/problem+json' } },
+    );
+  }
 
   const resHeaders = new Headers(upstream.headers);
   resHeaders.delete('content-encoding');

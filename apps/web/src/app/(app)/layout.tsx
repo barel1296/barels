@@ -28,7 +28,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    api<Me>('/v1/auth/me').then(setMe).catch(() => undefined);
+    api<Me>('/v1/auth/me')
+      .then(setMe)
+      .catch(() => {
+        // Unauthenticated or API unreachable: the login page explains both
+        // better than a half-rendered shell.
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
+      });
   }, []);
 
   return (
