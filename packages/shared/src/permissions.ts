@@ -1,0 +1,77 @@
+/** Permission catalog (docs/08 §8.11). Seeded into Postgres by migration. */
+export const PERMISSIONS = {
+  'tenant:manage': 'Manage tenant settings and budgets',
+  'members:manage': 'Invite and manage tenant members',
+  'roles:manage': 'Create and edit custom roles',
+  'apikeys:manage': 'Create and revoke API keys',
+  'integrations:manage': 'Connect, configure and revoke data sources',
+  'taxonomy:manage': 'Manage the canonical event taxonomy',
+  'metrics:read': 'Query metrics and dashboards',
+  'health:read': 'View tracking health',
+  'health:manage': 'Acknowledge checks and override health gates',
+  'warroom:read': 'View War Room sessions',
+  'warroom:create': 'Start investigations',
+  'warroom:participate': 'Send directives to running sessions',
+  'warroom:manage': 'Cancel sessions',
+  'recs:read': 'View recommendations',
+  'recs:manage': 'Dismiss recommendations',
+  'actions:read': 'View actions and approval queue',
+  'actions:approve:budget_change': 'Approve budget change actions',
+  'actions:approve:pause_entity': 'Approve pause/resume actions',
+  'actions:approve:create_campaign': 'Approve campaign creation actions',
+  'actions:approve:audience_sync': 'Approve audience sync actions',
+  'actions:approve:creative_rotation': 'Approve creative rotation actions',
+  'actions:approve:crm_journey_change': 'Approve CRM actions',
+  'actions:approve:aso_change': 'Approve ASO actions',
+  'actions:execute': 'Manually execute or roll back actions (L3+)',
+  'policies:manage': 'Manage guardrails, approval policies and autonomy levels',
+  'memory:manage': 'Curate tenant business memory',
+  'audit:read': 'Read audit logs',
+  'costs:read': 'View LLM cost ledger and budgets',
+} as const;
+
+export type PermissionKey = keyof typeof PERMISSIONS;
+
+export const SYSTEM_ROLES = {
+  owner: Object.keys(PERMISSIONS) as PermissionKey[],
+  admin: (Object.keys(PERMISSIONS) as PermissionKey[]).filter(
+    (p) => p !== 'tenant:manage',
+  ),
+  approver: [
+    'metrics:read',
+    'health:read',
+    'warroom:read',
+    'warroom:create',
+    'warroom:participate',
+    'recs:read',
+    'recs:manage',
+    'actions:read',
+    'actions:approve:budget_change',
+    'actions:approve:pause_entity',
+    'actions:approve:create_campaign',
+    'actions:approve:audience_sync',
+    'actions:approve:creative_rotation',
+    'actions:approve:crm_journey_change',
+    'actions:approve:aso_change',
+    'costs:read',
+  ] as PermissionKey[],
+  analyst: [
+    'metrics:read',
+    'health:read',
+    'warroom:read',
+    'warroom:create',
+    'warroom:participate',
+    'recs:read',
+    'actions:read',
+    'costs:read',
+  ] as PermissionKey[],
+  viewer: [
+    'metrics:read',
+    'health:read',
+    'warroom:read',
+    'recs:read',
+    'actions:read',
+  ] as PermissionKey[],
+} as const;
+
+export type SystemRoleName = keyof typeof SYSTEM_ROLES;

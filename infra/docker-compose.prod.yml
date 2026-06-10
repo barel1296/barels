@@ -1,0 +1,128 @@
+# Production-shaped compose for GROS (single-host deployment / staging).
+# Secrets come from the environment (.env next to this file) — NOTHING is
+# hardcoded. For real production prefer managed Postgres/ClickHouse and a
+# secret manager; this file documents the service topology either way.
+#
+#   docker compose -f infra/docker-compose.prod.yml --env-file .env up -d
+#
+# Required env (no dev defaults are accepted in production):
+#   POSTGRES_PASSWORD, APP_DB_PASSWORD, CLICKHOUSE_PASSWORD,
+#   JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, SERVICE_TOKEN,
+#   CREDENTIALS_MASTER_KEY, ANTHROPIC_API_KEY (for live agent sessions)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gros
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: gros
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?required}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gros -d gros"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    environment:
+      CLICKHOUSE_DB: gros
+      CLICKHOUSE_USER: gros
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?required}
+    volumes:
+      - ch_data:/var/lib/clickhouse
+    ulimits:
+      nofile: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping | grep -q Ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    command: ["node", "dist/db/migrate.js"]
+    environment:
+      DATABASE_URL_OWNER: postgres://gros:${POSTGRES_PASSWORD}@postgres:5432/gros
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      API_PORT: "3001"
+      DATABASE_URL: postgres://gros_app:${APP_DB_PASSWORD}@postgres:5432/gros
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?required}
+      SERVICE_TOKEN: ${SERVICE_TOKEN:?required}
+      CREDENTIALS_MASTER_KEY: ${CREDENTIALS_MASTER_KEY:?required}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: workers/py/Dockerfile
+    environment:
+      DATABASE_URL: postgres://gros_app:${APP_DB_PASSWORD}@postgres:5432/gros
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      WORKER_API_URL: http://api:3001
+      SERVICE_TOKEN: ${SERVICE_TOKEN}
+      CREDENTIALS_MASTER_KEY: ${CREDENTIALS_MASTER_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ARTIFACT_S3_BUCKET: ${ARTIFACT_S3_BUCKET:-}
+      ARTIFACT_DIR: /var/artifacts
+    volumes:
+      - artifacts:/var/artifacts
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      API_INTERNAL_URL: http://api:3001
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  ch_data:
+  redis_data:
+  artifacts:

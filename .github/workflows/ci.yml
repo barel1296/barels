@@ -1,0 +1,75 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  api-e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: gros
+          POSTGRES_PASSWORD: gros
+          POSTGRES_DB: gros
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U gros -d gros"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @gros/shared build
+      - name: Create non-superuser app role
+        run: |
+          PGPASSWORD=gros psql -h localhost -U gros -d gros -c \
+            "CREATE ROLE gros_app LOGIN PASSWORD 'gros_app' NOSUPERUSER NOCREATEDB NOCREATEROLE"
+      - name: Run migrations (owner role)
+        run: pnpm --filter @gros/api run db:migrate
+        env:
+          DATABASE_URL_OWNER: postgres://gros:gros@localhost:5432/gros
+      - name: E2E suite (non-superuser app role — RLS enforced)
+        run: pnpm --filter @gros/api exec jest --runTestsByPath src/e2e/api.e2e.spec.ts
+        env:
+          E2E_DATABASE_URL: postgres://gros_app:gros_app@localhost:5432/gros
+          E2E_DATABASE_URL_OWNER: postgres://gros:gros@localhost:5432/gros
+
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --all-extras
+      - run: uv run ruff check .
+      - run: uv run mypy gros_workers
+      - run: uv run pytest -q
