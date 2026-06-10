@@ -13,8 +13,8 @@ import { CurrentAuth, RequirePermission } from '../auth/decorators';
 import { ZodValidationPipe } from '../common/zod.pipe';
 import { AuditService } from '../audit/audit.service';
 import type { AuthContext } from '../auth/auth.types';
-import * as bcrypt from 'bcryptjs';
 import { randomToken } from '../common/crypto';
+import { hashPassword } from '../auth/passwords';
 
 const updateTenantSchema = z.object({
   name: z.string().min(1).max(120).optional(),
@@ -103,7 +103,7 @@ export class TenantsController {
     @Body(new ZodValidationPipe(inviteSchema)) body: z.infer<typeof inviteSchema>,
   ) {
     const tempPassword = randomToken(12);
-    const passwordHash = await bcrypt.hash(tempPassword, 12);
+    const passwordHash = await hashPassword(tempPassword);
     const result = await this.db.withContext(
       { tenantId: auth.tenantId, userId: auth.userId },
       async (c) => {

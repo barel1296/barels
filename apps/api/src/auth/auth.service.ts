@@ -3,12 +3,13 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { randomUUID } from 'node:crypto';
 import { ACTION_KINDS } from '@gros/shared';
 import { DbService } from '../db/db.service';
 import { JwtTokenService } from './jwt.service';
 import { loadConfig } from '../config/config';
 import { sha256Hex, randomToken } from '../common/crypto';
+import { hashPassword, verifyPassword } from './passwords';
 
 export interface TokenPair {
   accessToken: string;
@@ -63,7 +64,7 @@ export class AuthService {
     tenantName: string;
     tenantSlug: string;
   }): Promise<TokenPair> {
-    const passwordHash = await bcrypt.hash(input.password, 12);
+    const passwordHash = await hashPassword(input.password);
     return this.db.withContext({}, async (c) => {
       const existing = await c.query('SELECT 1 FROM users WHERE email = $1', [
         input.email,
@@ -85,12 +86,16 @@ export class AuthService {
       const userId = userRes.rows[0]!.id;
       await c.query(`SELECT set_config('app.user_id', $1, true)`, [userId]);
 
-      const tenantRes = await c.query<{ id: string }>(
-        `INSERT INTO tenants (name, slug) VALUES ($1, $2) RETURNING id`,
-        [input.tenantName, input.tenantSlug],
-      );
-      const tenantId = tenantRes.rows[0]!.id;
+      // Generate the id client-side and set the tenant context BEFORE the
+      // insert: under FORCE RLS the row must already be visible for the
+      // statement to complete as the non-superuser app role.
+      const tenantId = randomUUID();
       await c.query(`SELECT set_config('app.tenant_id', $1, true)`, [tenantId]);
+      await c.query(`INSERT INTO tenants (id, name, slug) VALUES ($1, $2, $3)`, [
+        tenantId,
+        input.tenantName,
+        input.tenantSlug,
+      ]);
 
       const roleRes = await c.query<{ id: string }>(
         `SELECT id FROM roles WHERE tenant_id IS NULL AND name = 'owner'`,
@@ -136,8 +141,8 @@ export class AuthService {
 
       await c.query(
         `INSERT INTO audit_logs (tenant_id, actor_type, actor_id, event, object_type, object_id, after_ref)
-         VALUES ($1, 'user', $2, 'tenant.created', 'tenant', $1, $3)`,
-        [tenantId, userId, JSON.stringify({ name: input.tenantName, slug: input.tenantSlug })],
+         VALUES ($1, 'user', $2, 'tenant.created', 'tenant', $3, $4)`,
+        [tenantId, userId, tenantId, JSON.stringify({ name: input.tenantName, slug: input.tenantSlug })],
       );
 
       const refreshToken = await this.issueRefreshToken(c, userId, tenantId);
@@ -161,8 +166,16 @@ export class AuthService {
       if (!user || !user.password_hash || user.status !== 'active') {
         throw new UnauthorizedException('Invalid credentials');
       }
-      const ok = await bcrypt.compare(password, user.password_hash);
-      if (!ok) throw new UnauthorizedException('Invalid credentials');
+      const { valid, needsRehash } = await verifyPassword(password, user.password_hash);
+      if (!valid) throw new UnauthorizedException('Invalid credentials');
+      if (needsRehash) {
+        // Transparent upgrade of legacy bcrypt hashes to argon2id.
+        const upgraded = await hashPassword(password);
+        await c.query(`UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`, [
+          user.id,
+          upgraded,
+        ]);
+      }
 
       await c.query(`SELECT set_config('app.user_id', $1, true)`, [user.id]);
       const memberships = await c.query<{ tenant_id: string; role_name: string; slug: string }>(

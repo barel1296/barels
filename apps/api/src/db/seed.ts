@@ -3,8 +3,8 @@
  * demo War Room session are seeded by `python -m gros_workers.seed.generate`.
  */
 import { Pool } from 'pg';
-import * as bcrypt from 'bcryptjs';
 import { createHash, randomBytes } from 'node:crypto';
+import { hashPassword } from '../auth/passwords';
 
 const DEMO = {
   tenantSlug: 'demo',
@@ -52,7 +52,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const passwordHash = await bcrypt.hash(DEMO.password, 12);
+    const passwordHash = await hashPassword(DEMO.password);
     await c.query(
       `INSERT INTO users (id, email, name, password_hash) VALUES ($1, $2, $3, $4)`,
       [SEED_IDS.user, DEMO.email, DEMO.name, passwordHash],

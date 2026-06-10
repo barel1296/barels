@@ -8,6 +8,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { AuthService, type TokenPair } from './auth.service';
 import { Public, CurrentAuth } from './decorators';
@@ -63,6 +64,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @Throttle({ sustained: { ttl: 60_000, limit: 5 } })
   @Post('register')
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: z.infer<typeof registerSchema>,
@@ -74,6 +76,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ sustained: { ttl: 60_000, limit: 10 } })
   @Post('login')
   @HttpCode(200)
   async login(
