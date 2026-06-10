@@ -62,3 +62,23 @@ Single-host/staging: `docker compose -f infra/docker-compose.prod.yml --env-file
 
 Kubernetes manifests, OTel collector wiring, SIEM export, multi-region — see
 docs/dev/known-gaps.md.
+
+## Hosted demo paths
+
+### Free: GitHub Codespaces (no card, ~5 minutes)
+
+The repo ships a devcontainer. From GitHub: Code -> Codespaces -> Create
+codespace on this branch -> wait for setup -> run "make demo" in the
+terminal -> open the PORTS tab and click the port-3000 URL (set public).
+Login: demo@gros.dev / demo-password-123. The free personal quota is 120
+core-hours/month; the codespace sleeps when idle and resumes on open.
+
+### Permanent: Render Blueprint (~$25/mo)
+
+render.yaml provisions the full topology (web, api, worker, ClickHouse
+private service + disk, managed Postgres) with migrations pre-deploy and
+self-seeding demo data. Render Dashboard -> New -> Blueprint -> connect the
+repo, pick the branch -> Apply. The public URL is the gros-web service.
+ANTHROPIC_API_KEY is the only manual env (optional; enables live agent
+sessions). RLS note: Render's Postgres user is a non-superuser owner, so
+FORCE RLS applies in single-role mode.
