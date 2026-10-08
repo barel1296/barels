@@ -34,7 +34,10 @@ body {
 
 #app {
   position: fixed;
-  inset: 0;
+  top: env(safe-area-inset-top, 0px);
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: 0;
+  right: 0;
 }
 
 #scene,
@@ -305,6 +308,14 @@ input[type='range'] {
   font-size: 12px;
   color: var(--muted);
   margin-top: 10px;
+}
+
+.menu-main button.fs-btn,
+button.fs-btn {
+  align-self: flex-start;
+  font-size: 13px;
+  padding: 7px 12px;
+  color: var(--muted);
 }
 
 /* ---------- cards ---------- */

@@ -88,7 +88,7 @@ export class Input {
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('blur', this.onBlur);
     window.addEventListener('gamepadconnected', () => (this.gamepadConnected = true));
-    window.addEventListener('gamepaddisconnected', () => (this.gamepadConnected = navigator.getGamepads().some((g) => !!g)));
+    window.addEventListener('gamepaddisconnected', () => (this.gamepadConnected = Input.pads().some((g) => !!g)));
   }
 
   private keyDown(e: KeyboardEvent): void {
@@ -148,8 +148,7 @@ export class Input {
     let lookY = 0;
 
     // ---- gamepad ----
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    const gp = Array.from(pads).find((g) => g && g.connected) ?? null;
+    const gp = Input.pads().find((g) => g && g.connected) ?? null;
     if (gp) {
       this.gamepadConnected = true;
       const dz = (v: number, d = 0.12) => (Math.abs(v) < d ? 0 : (v - Math.sign(v) * d) / (1 - d));
@@ -214,6 +213,15 @@ export class Input {
     ax.lookX = lookX;
     ax.lookY = lookY;
     return ax;
+  }
+
+  /** Connected gamepads; empty when the API is missing or blocked by the embedding page. */
+  static pads(): (Gamepad | null)[] {
+    try {
+      return navigator.getGamepads ? Array.from(navigator.getGamepads()) : [];
+    } catch {
+      return [];
+    }
   }
 
   /** Number keys 0-9 set throttle directly (0 = idle, 9 = 100 %). */

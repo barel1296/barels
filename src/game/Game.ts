@@ -191,8 +191,9 @@ export class Game {
   }
 
   private resize(): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const box = this.canvas.parentElement;
+    const w = box?.clientWidth || window.innerWidth;
+    const h = box?.clientHeight || window.innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();

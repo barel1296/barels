@@ -151,10 +151,12 @@ export class Menus {
             <div><b>${Math.round(c.distance / 1852)} NM</b><span>Distance</span></div>
           </div>
           <div class="footer-note">Tip: press <kbd>F1</kbd> in flight for the controls. Gamepads and touch screens are supported.</div>
+          <button class="fs-btn" data-fs>⛶ Fullscreen</button>
         </div>
       </div>`,
       'main',
     );
+    this.bindFullscreen();
     this.on('[data-go]', (e) => {
       const go = e.dataset.go;
       if (go === 'free') this.showFreeFlight();
@@ -481,6 +483,25 @@ export class Menus {
 
   // ------------------------------------------------------------- in flight
 
+  /** Fullscreen toggle (optional: some embeds and phones refuse it). */
+  private bindFullscreen(): void {
+    const btn = this.el.querySelector<HTMLButtonElement>('[data-fs]');
+    if (!btn) return;
+    if (!document.fullscreenEnabled) {
+      btn.remove();
+      return;
+    }
+    const label = () => (btn.textContent = document.fullscreenElement ? '⛶ Exit fullscreen' : '⛶ Fullscreen');
+    label();
+    btn.addEventListener('click', () => {
+      const p = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+      p.then(label).catch(() => {
+        btn.textContent = 'Fullscreen unavailable here';
+        btn.disabled = true;
+      });
+    });
+  }
+
   showPause(isMission: boolean, title: string): void {
     this.backStack = [() => this.cb.resume()];
     this.set(
@@ -492,10 +513,12 @@ export class Menus {
           <button data-a="settings">Settings</button>
           <button data-a="controls">Controls</button>
           <button data-a="exit">Exit to main menu</button>
+          <button class="fs-btn" data-fs>⛶ Fullscreen</button>
         </div>
       </div></div>`,
       'pause',
     );
+    this.bindFullscreen();
     this.on('[data-a]', (e) => {
       const a = e.dataset.a;
       if (a === 'resume') this.cb.resume();

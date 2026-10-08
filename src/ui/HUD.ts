@@ -83,8 +83,9 @@ export class HUD {
 
   resize(): void {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.w = window.innerWidth;
-    this.h = window.innerHeight;
+    const box = this.canvas.parentElement;
+    this.w = box?.clientWidth || window.innerWidth;
+    this.h = box?.clientHeight || window.innerHeight;
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     this.canvas.style.width = `${this.w}px`;
