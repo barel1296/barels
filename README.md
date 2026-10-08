@@ -29,6 +29,7 @@ You need Node 20 or newer and a browser with WebGL 2 (current Chrome, Edge, Fire
 | `npm test` | Unit tests (Vitest): physics, world and missions |
 | `npm run test:e2e` | End-to-end tests (Playwright) against the production build |
 | `npm run typecheck` | TypeScript only |
+| `npm run build:artifact` | Build into `dist-artifact/` with three.js left external (load it from a CDN with an import map) |
 
 To host the game, copy `dist/` to any static web server. The repository also includes a manual **Deploy to GitHub Pages** workflow under `.github/workflows/deploy-pages.yml`. Enable Pages with the source set to *GitHub Actions*, then run the workflow from the Actions tab.
 

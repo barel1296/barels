@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:artifact": "tsc --noEmit && vite build --mode artifact"
   },
   "dependencies": {
     "three": "0.170.0"
