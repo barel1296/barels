@@ -4,13 +4,14 @@
  */
 import { TerrainGenerator, generateHeightmap, type ChunkData, type ChunkRequest } from './terrainGen';
 
-type Pending = { resolve: (v: unknown) => void; reject: (e: unknown) => void };
+type Msg = { type: string; id: number; [k: string]: unknown };
+type Pending = { resolve: (v: unknown) => void; reject: (e: unknown) => void; msg: Msg };
 
 export class TerrainWorkerPool {
   private workers: Worker[] = [];
   private busy: number[] = [];
   private pending = new Map<number, Pending>();
-  private queue: { msg: { type: string; id: number; [k: string]: unknown }; }[] = [];
+  private queue: { msg: Msg }[] = [];
   private nextId = 1;
   private fallback: TerrainGenerator | null = null;
 
@@ -38,9 +39,10 @@ export class TerrainWorkerPool {
     this.fallback = new TerrainGenerator(seed);
     for (const w of this.workers) w.terminate();
     this.workers = [];
-    // Re-run anything that was queued or in flight.
-    const q = this.queue.splice(0);
-    for (const item of q) this.runFallback(item.msg);
+    this.queue = [];
+    // Re-run everything still pending — queued or already sent to a dead worker.
+    const pending = [...this.pending.values()].map((p) => p.msg);
+    pending.forEach((msg, i) => setTimeout(() => this.runFallback(msg), i));
   }
 
   get capacity(): number {
@@ -61,9 +63,9 @@ export class TerrainWorkerPool {
 
   private submit(body: Record<string, unknown>): Promise<unknown> {
     const id = this.nextId++;
-    const msg = { ...body, id } as { type: string; id: number };
+    const msg = { ...body, id } as Msg;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { resolve, reject, msg });
       if (this.fallback) {
         // Defer so callers can batch; keeps frames responsive.
         setTimeout(() => this.runFallback(msg), 0);
@@ -74,7 +76,7 @@ export class TerrainWorkerPool {
     });
   }
 
-  private runFallback(msg: { type: string; id: number; [k: string]: unknown }): void {
+  private runFallback(msg: Msg): void {
     const g = this.fallback!;
     const p = this.pending.get(msg.id);
     if (!p) return;

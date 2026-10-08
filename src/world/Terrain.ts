@@ -80,12 +80,13 @@ export class Terrain {
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <map_fragment>',
         `#ifdef USE_MAP
+          // Fine grain only near the camera: far away the vertex colours carry the variation
+          // and tiled detail would alias into visible grids.
           vec3 d1 = texture2D(map, vMapUv).rgb;
           vec3 d2 = texture2D(map, vMapUv * 0.131 + vec2(0.37, 0.71)).rgb;
-          vec3 d3 = texture2D(map, vMapUv * 0.0193 + vec2(0.11, 0.53)).rgb;
-          float fade = 1.0 - smoothstep(600.0, 4000.0, vViewPosition.z);
-          float fade2 = 1.0 - smoothstep(2500.0, 12000.0, vViewPosition.z);
-          vec3 detail = mix(vec3(1.0), d1 * 1.1, fade * 0.9) * mix(vec3(1.0), d2 * 1.12, fade2) * mix(vec3(1.0), d3 * 1.12, 0.8);
+          float fade = 1.0 - smoothstep(250.0, 1500.0, vViewPosition.z);
+          float fade2 = 1.0 - smoothstep(700.0, 3200.0, vViewPosition.z);
+          vec3 detail = mix(vec3(1.0), d1 * 1.1, fade * 0.85) * mix(vec3(1.0), d2 * 1.11, fade2 * 0.9);
           diffuseColor.rgb *= detail;
         #endif`,
       );

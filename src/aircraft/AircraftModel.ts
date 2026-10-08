@@ -656,13 +656,13 @@ export class AircraftModel {
   private dashboard(_pos: [number, number, number], width: number, height: number): void {
     const eye = this.spec.camera.cockpit;
     const dist = 0.8;
-    const top = eye[1] - Math.tan(19 * DEG) * dist;
+    const top = eye[1] - Math.tan(25 * DEG) * dist;
     const g = new Group();
     const panelMat = this.mat(0x2b3036, { rough: 0.85, metal: 0.1 });
     const panel = new Mesh(new BoxGeometry(width * 1.3, height * 1.6, 0.06), panelMat);
     panel.position.set(0, -height * 0.8, 0);
-    const shroud = new Mesh(new BoxGeometry(width * 1.35, 0.05, 0.32), this.mat(0x16181b, { rough: 0.95, metal: 0 }));
-    shroud.position.set(0, 0.02, 0.12);
+    const shroud = new Mesh(new BoxGeometry(width * 1.35, 0.04, 0.16), this.mat(0x16181b, { rough: 0.95, metal: 0 }));
+    shroud.position.set(0, 0.0, 0.05);
     // A few instrument bezels for depth.
     const bezelMat = this.mat(0x0b0c0e, { rough: 0.6, metal: 0.3 });
     for (let i = 0; i < 6; i++) {

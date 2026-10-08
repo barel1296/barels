@@ -49,7 +49,12 @@ uniform float uHalf;
 uniform float uAmbient;
 varying vec3 vWorld;
 
-vec2 waveGrad(vec2 p, float t) {
+// Fade a wave once its wavelength approaches the pixel footprint (prevents moiré).
+float aa(float f, float dist) {
+  return clamp(1.0 - (f * dist - 250.0) / 500.0, 0.0, 1.0);
+}
+
+vec2 waveGrad(vec2 p, float t, float dist) {
   vec2 g = vec2(0.0);
   // Sum of directional waves (analytic gradient).
   vec2 d1 = normalize(vec2(1.0, 0.35)); float f1 = 0.045; float a1 = 0.55;
@@ -57,11 +62,11 @@ vec2 waveGrad(vec2 p, float t) {
   vec2 d3 = normalize(vec2(0.2, -1.0)); float f3 = 0.17;  float a3 = 0.14;
   vec2 d4 = normalize(vec2(-1.0, -0.4)); float f4 = 0.37; float a4 = 0.06;
   vec2 d5 = normalize(vec2(0.7, 0.7)); float f5 = 0.81;  float a5 = 0.025;
-  g += d1 * cos(dot(d1, p) * f1 + t * 0.9) * f1 * a1;
-  g += d2 * cos(dot(d2, p) * f2 + t * 1.3) * f2 * a2;
-  g += d3 * cos(dot(d3, p) * f3 + t * 1.9) * f3 * a3;
-  g += d4 * cos(dot(d4, p) * f4 + t * 2.7) * f4 * a4;
-  g += d5 * cos(dot(d5, p) * f5 + t * 4.1) * f5 * a5;
+  g += d1 * cos(dot(d1, p) * f1 + t * 0.9) * f1 * a1 * aa(f1, dist);
+  g += d2 * cos(dot(d2, p) * f2 + t * 1.3) * f2 * a2 * aa(f2, dist);
+  g += d3 * cos(dot(d3, p) * f3 + t * 1.9) * f3 * a3 * aa(f3, dist);
+  g += d4 * cos(dot(d4, p) * f4 + t * 2.7) * f4 * a4 * aa(f4, dist);
+  g += d5 * cos(dot(d5, p) * f5 + t * 4.1) * f5 * a5 * aa(f5, dist);
   return g * uRough;
 }
 
@@ -71,7 +76,7 @@ void main() {
   vec3 toCam = cameraPosition - vWorld;
   float dist = length(toCam);
   vec3 v = toCam / dist;
-  vec2 g = waveGrad(p, uTime) + waveGrad(p * 0.21 + 37.0, uTime * 0.6) * 0.8;
+  vec2 g = waveGrad(p, uTime, dist) + waveGrad(p * 0.21 + 37.0, uTime * 0.6, dist * 0.21) * 0.8;
   vec3 n = normalize(vec3(-g.x, 1.0, -g.y));
   n = normalize(mix(n, vec3(0.0, 1.0, 0.0), smoothstep(400.0, 9000.0, dist) * 0.85));
   float ndv = max(dot(n, v), 0.0);
@@ -92,7 +97,7 @@ void main() {
   // Shore foam.
   float shore = smoothstep(3.0, 0.2, depth);
   float band = 0.5 + 0.5 * sin(depth * 4.0 - uTime * 1.6 + sin(p.x * 0.05) * 2.0 + sin(p.y * 0.043));
-  col = mix(col, vec3(0.92) * (0.4 + diffuse), shore * band * 0.55 * (1.0 - smoothstep(1500.0, 4000.0, dist)));
+  col = mix(col, vec3(0.92) * min(1.0, diffuse * 1.2), shore * band * 0.55 * (1.0 - smoothstep(1500.0, 4000.0, dist)));
 
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>

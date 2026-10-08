@@ -196,7 +196,7 @@ export class HUD {
       this.text(`${d.fps.toFixed(0)} FPS`, this.w - 12, ty, WHITE, 12, 'right', 500);
       ty += 18;
     }
-    this.text(d.cameraLabel, this.w - 12, ty, 'rgba(244,248,255,0.65)', 12, 'right', 500);
+    if (!d.touch) this.text(d.cameraLabel, this.w - 12, ty, 'rgba(244,248,255,0.65)', 12, 'right', 500);
   }
 
   // ------------------------------------------------------------- conformal HUD

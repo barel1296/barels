@@ -1117,6 +1117,8 @@ export class Game {
 
   private computeIls(): IlsInfo | null {
     const m = this.model!;
+    // Only shown when set up for an approach: not climbing away.
+    if (m.telemetry.verticalSpeed > 1.5) return null;
     let best: IlsInfo | null = null;
     let bestScore = Infinity;
     for (const ap of this.world.map.airports) {
@@ -1124,11 +1126,11 @@ export class Game {
         const rx = m.position.x - e.x;
         const rz = m.position.z - e.z;
         const d = -(rx * e.dx + rz * e.dz);
-        if (d < -200 || d > 22000) continue;
+        if (d < -200 || d > 18000) continue;
         const lat = rx * e.dz - rz * e.dx;
         const latAng = Math.atan2(lat, Math.max(d + 1000, 1)) / DEG;
-        if (Math.abs(latAng) > 12) continue;
-        if (Math.abs(angleDiffDeg(m.telemetry.heading, e.heading)) > 70) continue;
+        if (Math.abs(latAng) > 10) continue;
+        if (Math.abs(angleDiffDeg(m.telemetry.heading, e.heading)) > 35) continue;
         const h = m.position.y - ap.elevation;
         const gsAng = Math.atan2(h, d + 300) / DEG;
         const info: IlsInfo = {
@@ -1241,6 +1243,12 @@ export class Game {
       aircraftSpec: (): AircraftSpec | null => this.model?.spec ?? null,
       setCameraMode: (mode: 'chase' | 'cockpit' | 'orbit' | 'flyby') => this.camCtl.setMode(mode),
       exit: () => this.exitToMenu(),
+      world: () => this.world,
+      /** Remove transient messages (used for clean screenshots). */
+      cleanHud: () => {
+        this.hud.clearToasts();
+        this.hint.classList.add('hidden');
+      },
       /** Fast-forward the flight (no rendering) with optional fixed pilot inputs. */
       simulate: (seconds: number, inp: { pitch?: number; roll?: number; yaw?: number; throttle?: number; brake?: number } = {}) => {
         const dt = 1 / 60;

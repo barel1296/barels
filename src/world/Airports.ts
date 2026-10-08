@@ -56,7 +56,7 @@ void main() {
   float px = aSize * uScale / dist;
   gl_PointSize = clamp(px, 1.0 + uNight * 2.0, 48.0);
   vColor = color;
-  vI = mix(0.35, 1.0, uNight) * clamp(px / 1.5, 0.35, 1.0);
+  vI = mix(0.35, 1.0, uNight) * clamp(px / 1.5, mix(0.35, 0.75, uNight), 1.0);
   if (aFlash >= 0.0) {
     float ph = fract(uTime * 0.5 - aFlash);
     vI *= step(ph, 0.06) * 4.0;

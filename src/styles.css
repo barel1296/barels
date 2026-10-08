@@ -71,6 +71,7 @@ body {
   inset: 0;
   display: flex;
   align-items: center;
+  align-items: safe center;
   justify-content: center;
   padding: 24px 16px;
   overflow-y: auto;
@@ -703,5 +704,34 @@ kbd {
   }
   .progress i {
     transition: none;
+  }
+}
+
+@media (max-height: 520px) {
+  .logo {
+    margin-bottom: 8px;
+  }
+  .logo .t1 {
+    font-size: 30px;
+  }
+  .logo .t2 {
+    margin-top: 4px;
+  }
+  .menu-main {
+    gap: 6px;
+  }
+  .menu-main button {
+    padding: 9px 14px;
+    font-size: 15px;
+  }
+  .career,
+  .footer-note {
+    display: none;
+  }
+  .panel {
+    max-height: calc(100vh - 16px);
+  }
+  .screen {
+    padding: 8px 12px;
   }
 }

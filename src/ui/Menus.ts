@@ -460,6 +460,7 @@ export class Menus {
               <tr><td>Autopilot / Lights</td><td>D-pad ↑ / ↓</td></tr>
               <tr><td>HUD / Smoke</td><td>D-pad ← / →</td></tr>
               <tr><td>Map / Pause</td><td>Back / Start</td></tr>
+              <tr><td>Speedbrake</td><td>Left stick click</td></tr>
             </table>
             <div class="section-title">Touch</div>
             <p style="color:var(--muted);line-height:1.5;margin:0">Left stick flies the aircraft, the lever on the right sets the throttle, and the buttons handle gear, flaps, autopilot, camera and brakes.</p>
