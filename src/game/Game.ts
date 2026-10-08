@@ -31,6 +31,7 @@ import { Minimap } from '../ui/Minimap';
 import { Menus, type FreeFlightConfig } from '../ui/Menus';
 import { Store, type Settings } from './Settings';
 import { buildMissions, MissionRuntime, type MissionDef, type SpawnDef } from './Missions';
+import { Traffic } from './Traffic';
 import { makeSmokeTexture } from '../world/textures';
 import { DEG, FPM_PER_MS, FT_PER_M, KTS_PER_MS, angleDiffDeg, clamp } from '../core/math';
 
@@ -103,6 +104,9 @@ export class Game {
   private lightning = 0;
   private nextLightning = 8;
 
+  readonly traffic: Traffic;
+  private trafficSmoke: Vector3[] = [];
+
   // Menu preview.
   private preview: { model: AircraftModel; fm: FlightModel } | null = null;
   private previewYaw = 0.6;
@@ -137,6 +141,8 @@ export class Game {
     this.smoke = new ParticleSystem(5000, smokeTex, NormalBlending);
     this.fire = new ParticleSystem(1200, smokeTex, AdditiveBlending);
     this.scene.add(this.smoke.points, this.fire.points);
+    this.traffic = new Traffic(this.world.map);
+    this.scene.add(this.traffic.group);
 
     this.whiteout = document.createElement('div');
     this.whiteout.className = 'whiteout';
@@ -237,6 +243,7 @@ export class Game {
     this.input.invertPitch = s.invertPitch;
     this.input.sensitivity = s.sensitivity;
     this.fcs.assist = s.assist;
+    this.traffic?.setEnabled(s.traffic);
     if (prev.quality !== s.quality) {
       const q = QUALITY[s.quality];
       this.world.setQuality(q);
@@ -802,6 +809,12 @@ export class Game {
         this.updateCrashed(dt);
         break;
     }
+    if (this.state !== 'paused') {
+      this.traffic.update(dt, this.world.env.night);
+      for (const sp of this.traffic.smokePoints(this.trafficSmoke)) {
+        if (Math.random() < dt * 45) this.smoke.emit(sp, _v2.set(0, 0, 0), { life: 9, size0: 1.2, size1: 9, alpha: 0.7, color: 0xf8f8f8, drag: 0.3 });
+      }
+    }
     const focus = m && this.state !== 'menu' ? (this.state === 'crashed' ? this.crashPos : m.position) : this.preview?.fm.position ?? this.camera.position;
     this.world.update(this.camera, this.state === 'paused' ? 0 : dt, focus, window.innerHeight);
     const fx = this.state === 'paused' ? 0 : dt;
@@ -909,6 +922,10 @@ export class Game {
       steps++;
     }
     if (steps >= 48) this.accumulator = 0;
+    if (!m.crashed) {
+      const hit = this.traffic.collide(m.position, m.spec.bodyRadius);
+      if (hit) m.crash(`Mid-air collision with ${hit.callsign}`);
+    }
     if (this.state !== 'flying') return; // crashed during physics
 
     // Stats.
@@ -1190,6 +1207,7 @@ export class Game {
         minimap: this.state === 'flying' ? this.minimap : null,
         bigMap: this.bigMap && this.state === 'flying',
         touch: this.touch.visible,
+        traffic: this.traffic.info(),
       },
       dt,
     );

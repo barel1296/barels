@@ -16,6 +16,7 @@ export interface Settings {
   showFps: boolean;
   sensitivity: number;
   touchControls: 'auto' | 'on' | 'off';
+  traffic: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showFps: false,
   sensitivity: 1,
   touchControls: 'auto',
+  traffic: true,
 };
 
 export interface MissionRecord {

@@ -70,6 +70,7 @@ Each model is built from lofted fuselages and NACA-airfoil wings. Ailerons, elev
 - **Port Harbor:** a city of instanced buildings whose procedural windows light up at night.
 - **Sky and water:** the sky shader shows the sun, moon and stars. The ocean has wave normals, Fresnel reflections, depth-tinted shallows and shore foam. Billboard cumulus clouds drift with the wind, and flying through them whites out the view.
 - **Time and weather:** dawn, day, sunset and night, combined with clear, cloudy, overcast and storm (rain and lightning).
+- **AI air traffic:** a sightseeing trainer, an airshow display aircraft with smoke, a fighter patrol and an airliner on its route. They show on the HUD as TCAS-style markers, on the minimap and on the chart. A mid-air collision is a crash, and traffic can be turned off in Settings.
 
 ### Gameplay
 - **Free Flight:** pick any aircraft, eight start positions (runways, in flight, or on final approach), the time of day, the weather and the wind.
@@ -147,13 +148,14 @@ e2e/                      Playwright: menus, flying, missions, crash and persist
 
 ## Testing
 
-- **Unit tests** (`npm test`, 62 tests) fly the real flight model headlessly. They cover:
+- **Unit tests** (`npm test`, 66 tests) fly the real flight model headlessly. They cover:
   - every aircraft resting on its gear, taking off, holding altitude and bank, and flying the autopilot
   - stalls near the published stall speeds, with recovery
   - flying a stabilised approach to a soft landing that stops on the centreline
   - crash detection, G protection and aircraft systems
   - world tests: determinism, flat airports, clear approach corridors, and that the terrain mesh matches the physics surface
   - complete missions flown by a scripted pilot
+  - AI traffic routes that stay clear of terrain and mission rings
 - **End-to-end tests** (`npm run test:e2e`, 7 tests) drive the production build in Chromium using software WebGL. They cover:
   - booting and navigating the menus
   - configuring a flight through the UI, taking off and climbing

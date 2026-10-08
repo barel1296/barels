@@ -369,6 +369,7 @@ export class Menus {
         <div class="toggle"><span>Units</span>${seg('units', [['imperial', 'kt / ft'], ['metric', 'km/h / m']])}</div>
         <div class="toggle"><span>HUD style</span>${seg('hud', [['full', 'HUD'], ['instruments', 'Gauges'], ['minimal', 'Minimal']])}</div>
         <div class="toggle"><span>Touch controls</span>${seg('touchControls', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])}</div>
+        <div class="toggle"><span>Air traffic</span>${seg('traffic', [['true', 'On'], ['false', 'Off']])}</div>
         <div class="section-title">Audio</div>
         <div class="toggle"><span>Master volume</span><input type="range" id="vol" min="0" max="1" step="0.05" value="${s.volume}" style="width:180px"></div>
         <div class="toggle"><span>Mute</span>${seg('muted', [['false', 'Off'], ['true', 'On']])}</div>

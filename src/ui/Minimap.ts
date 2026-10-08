@@ -3,6 +3,7 @@ import type { WorldMap } from '../world/WorldMap';
 import { WORLD_HALF } from '../world/WorldMap';
 import type { FlightModel } from '../physics/FlightModel';
 import type { MissionHud } from './HUD';
+import type { TrafficInfo } from '../game/Traffic';
 import type { Vector3 } from 'three';
 import { DEG } from '../core/math';
 
@@ -93,7 +94,7 @@ export class Minimap {
   }
 
   /** Small heading-up circular map in the bottom-right corner. */
-  drawMini(ctx: CanvasRenderingContext2D, w: number, h: number, m: FlightModel, target: Vector3 | null, lower: boolean, touch: boolean): void {
+  drawMini(ctx: CanvasRenderingContext2D, w: number, h: number, m: FlightModel, target: Vector3 | null, lower: boolean, touch: boolean, traffic: TrafficInfo[] = []): void {
     const R = touch ? Math.min(58, Math.min(w, h) * 0.13) : Math.min(95, Math.max(60, Math.min(w, h) * 0.12));
     const cx = w - R - (touch ? 70 : 18);
     const cy = touch ? R + 12 : h - R - 18;
@@ -129,6 +130,18 @@ export class Minimap {
       ctx.stroke();
       ctx.fill();
     }
+    // Traffic.
+    for (const t of traffic) {
+      const dx = t.position.x - m.position.x;
+      const dz = t.position.z - m.position.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist * scale > R - 4) continue;
+      const brg = Math.atan2(dx, -dz) - hdg;
+      ctx.beginPath();
+      ctx.arc(cx + Math.sin(brg) * dist * scale, cy - Math.cos(brg) * dist * scale, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#67e8f9';
+      ctx.fill();
+    }
     // Ring + north marker.
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
@@ -156,7 +169,7 @@ export class Minimap {
   }
 
   /** Full-screen north-up chart. */
-  drawBig(ctx: CanvasRenderingContext2D, w: number, h: number, m: FlightModel, mission: MissionHud | null): void {
+  drawBig(ctx: CanvasRenderingContext2D, w: number, h: number, m: FlightModel, mission: MissionHud | null, traffic: TrafficInfo[] = []): void {
     ctx.fillStyle = 'rgba(4,10,18,0.85)';
     ctx.fillRect(0, 0, w, h);
     const size = Math.min(w, h) * 0.9;
@@ -207,6 +220,17 @@ export class Minimap {
       ctx.lineWidth = 2;
       ctx.strokeRect(p.x - 8, p.y - 8, 16, 16);
     }
+    for (const t of traffic) {
+      const p = to(t.position.x, t.position.z);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#67e8f9';
+      ctx.fill();
+      ctx.font = '600 11px system-ui, sans-serif';
+      ctx.fillStyle = '#a5f3fc';
+      ctx.fillText(t.callsign, p.x + 8, p.y - 8);
+    }
+    ctx.font = '700 13px system-ui, sans-serif';
     // Aircraft.
     const ap = to(m.position.x, m.position.z);
     ctx.save();

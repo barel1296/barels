@@ -7,6 +7,7 @@ import type { FlightControlSystem } from '../physics/FlightControls';
 import type { HudMode, Units } from '../game/Settings';
 import { DEG, FPM_PER_MS, FT_PER_M, KMH_PER_MS, KTS_PER_MS, RAD, clamp, wrap360 } from '../core/math';
 import type { Minimap } from './Minimap';
+import type { TrafficInfo } from '../game/Traffic';
 
 export interface Warning {
   text: string;
@@ -49,6 +50,7 @@ export interface HudData {
   minimap: Minimap | null;
   bigMap: boolean;
   touch: boolean;
+  traffic: TrafficInfo[];
 }
 
 interface Toast {
@@ -183,12 +185,13 @@ export class HUD {
     }
     if (d.mode === 'instruments') this.drawSixPack(d);
     if (d.mode !== 'minimal') this.drawSystems(d);
+    if (d.mode !== 'minimal') this.drawTraffic(d);
     this.drawObjective(d);
     this.drawWarnings(d);
     if (d.mission) this.drawMission(d.mission);
     if (d.ils && d.mode === 'full') this.drawIls(d.ils);
-    if (d.minimap && !d.bigMap && d.mode !== 'minimal') d.minimap.drawMini(c, this.w, this.h, m, d.mission?.target ?? null, d.mode === 'instruments', d.touch);
-    if (d.minimap && d.bigMap) d.minimap.drawBig(c, this.w, this.h, m, d.mission);
+    if (d.minimap && !d.bigMap && d.mode !== 'minimal') d.minimap.drawMini(c, this.w, this.h, m, d.mission?.target ?? null, d.mode === 'instruments', d.touch, d.traffic);
+    if (d.minimap && d.bigMap) d.minimap.drawBig(c, this.w, this.h, m, d.mission, d.traffic);
     this.drawToasts();
     // Corner info.
     const top = d.mission ? 8 : 8;
@@ -756,6 +759,34 @@ export class HUD {
   }
 
   // ------------------------------------------------------------- overlays
+
+  /** TCAS-style markers for nearby traffic: relative altitude in hundreds of feet. */
+  private drawTraffic(d: HudData): void {
+    const m = d.model;
+    const c = this.ctx;
+    for (const t of d.traffic) {
+      const dist = t.position.distanceTo(m.position);
+      if (dist > 9000 || dist < 1) continue;
+      const p = this.project(d.camera, t.position);
+      if (p.behind || p.x < 0 || p.x > this.w || p.y < 0 || p.y > this.h) continue;
+      const near = dist < 1500;
+      const col = near ? AMBER : '#67e8f9';
+      c.save();
+      c.translate(p.x, p.y);
+      c.rotate(Math.PI / 4);
+      c.strokeStyle = 'rgba(0,0,0,0.5)';
+      c.lineWidth = 4;
+      c.strokeRect(-6, -6, 12, 12);
+      c.strokeStyle = col;
+      c.lineWidth = 2;
+      c.strokeRect(-6, -6, 12, 12);
+      c.restore();
+      const rel = Math.round(((t.position.y - m.position.y) * FT_PER_M) / 100);
+      const trend = t.velocity.y > 1 ? '↑' : t.velocity.y < -1 ? '↓' : '';
+      this.text(`${rel >= 0 ? '+' : '−'}${String(Math.abs(rel)).padStart(2, '0')}${trend}`, p.x, p.y + 17, col, 11, 'center', 700);
+      if (near) this.text(t.callsign, p.x, p.y - 16, col, 11, 'center', 600);
+    }
+  }
 
   private drawWarnings(d: HudData): void {
     if (!d.warnings.length) return;
