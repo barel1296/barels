@@ -37,10 +37,16 @@ for _ in $(seq 1 300); do
   sleep 1
 done
 if ! grep -q 'READY' "$out/demo.log"; then echo "The demo did not become ready; see $out/demo.log"; exit 1; fi
+# 127.0.0.1 only works in a browser on this same machine; a Codespace is opened through its forwarded URL.
+if [ -n "${CODESPACE_NAME:-}" ]; then
+  open_at="https://$CODESPACE_NAME-$port.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}/admin/  (private: GitHub sign-in, then the dashboard's)"
+else
+  open_at="http://127.0.0.1:$port/admin/  (in a browser on this machine only)"
+fi
 cat <<MSG
 
-Dashboard demo is ready on port $port (http://127.0.0.1:$port/admin/ on this machine;
-in a Codespace, open the forwarded port $port from the Ports tab: it stays private to you).
+Dashboard demo is ready.
+  Open:                      $open_at
   Sign-in email + password:  $out/demo-credentials.txt
   Current 6-digit code:      (cd apps/platform && npm run demo:totp -- --out "$out")
   Stop:                      deploy/demo/stop.sh

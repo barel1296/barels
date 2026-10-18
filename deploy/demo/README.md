@@ -23,8 +23,10 @@ GitHub Codespaces runs the repository's dev container (`.devcontainer/`). It is 
 3. Wait for the first start, about 3–5 minutes:
    - the container is built, `npm ci` and the build run;
    - `deploy/demo/start.sh` seeds the demo. Its terminal ends with "Dashboard demo is ready".
-4. Open the **Ports** tab. Port **8090, "Dashboard demo (private)"** has a URL like `https://<codespace-name>-8090.app.github.dev`. Open it and add **`/admin/`**.
+4. Open the address the terminal prints: `https://<codespace-name>-8090.app.github.dev/admin/`. It is also in the **Ports** tab, port **8090, "Dashboard demo (private)"** (add **`/admin/`**).
+   - **Do not use `http://127.0.0.1:8090`** in your own browser. That address means *your own computer*, where the demo is not running, so the browser shows `ERR_CONNECTION_REFUSED`.
    - **Leave the port visibility Private.** Never set it to Public.
+   - **Port 8090 not listed, or the page does not load:** run `deploy/demo/start.sh` in the Codespace terminal. If start-up fails, it shows the end of `.demo/demo.log`.
 5. Sign in to the dashboard:
    - **Email and password:** open `.demo/demo-credentials.txt` in the Codespace editor. The file is generated at each start, readable only inside the Codespace, and never committed.
    - **6-digit code:** in the Codespace terminal run `cd apps/platform && npm run demo:totp -- --out ../../.demo`. Or add the TOTP secret from the same file to an authenticator app.
