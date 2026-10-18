@@ -34,6 +34,10 @@ export interface InstagramSimulator {
   media: Map<string, SimMedia>;
   replies: { commentId: string; message: string }[];
   hidden: Map<string, boolean>;
+  /** Metric names the simulated API rejects with code 100 (like a renamed metric). */
+  unsupportedMetrics: string[];
+  /** Follower count reported for every simulated account. */
+  followers: number;
   /** Containers stay IN_PROGRESS for this many status polls. */
   processingPolls: number;
   quotaTotal: number;
@@ -133,6 +137,11 @@ export async function startInstagramSimulator(): Promise<InstagramSimulator> {
       if (req.method === 'GET' && second === 'insights') {
         const values = insights.get(first!) ?? {};
         const wanted = String(params.metric ?? '').split(',').filter(Boolean);
+        const unsupported = wanted.filter((w) => sim.unsupportedMetrics.includes(w));
+        if (unsupported.length) {
+          const e = graphError(400, 100, `(#100) metric[0] must be one of the following values: ... (${unsupported.join(',')} not supported)`);
+          return reply.status(e.status).send(e.body);
+        }
         return { data: wanted.filter((w) => w in values).map((name) => ({ name, period: 'lifetime', values: [{ value: values[name] }] })) };
       }
       if (req.method === 'POST' && second === 'replies') {
@@ -142,6 +151,9 @@ export async function startInstagramSimulator(): Promise<InstagramSimulator> {
       if (req.method === 'POST' && !second && params.hide !== undefined) {
         hidden.set(first!, params.hide === 'true');
         return { success: true };
+      }
+      if (req.method === 'GET' && !second && first === account.igUserId) {
+        return { id: account.igUserId, username: account.username, followers_count: sim.followers, media_count: media.size };
       }
       if (req.method === 'GET' && !second) {
         const c = containers.get(first!);
@@ -167,6 +179,8 @@ export async function startInstagramSimulator(): Promise<InstagramSimulator> {
     replies,
     hidden,
     processingPolls: 1,
+    followers: 1200,
+    unsupportedMetrics: [],
     quotaTotal: 100,
     addAccount(username) {
       const igUserId = nextId();

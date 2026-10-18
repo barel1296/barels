@@ -126,6 +126,8 @@ export interface Config {
   payments: PaymentsConfig;
   conversation: { replyDebounceMs: number };
   publishing: { adapters: string[] };
+  costs: { gpuHourUsd: number; llmPer1kTokensUsd: number; fixedMonthlyUsd: number };
+  analytics: { instagramMediaMetrics: string[] };
   /** Job runner concurrency (non-GPU background work). */
   jobConcurrency: number;
 }
@@ -258,6 +260,15 @@ export function loadConfig(env: Env = process.env): Config {
       invoiceSecret: Buffer.from(env.INVOICE_SECRET ?? env.ASSET_URL_SECRET ?? '', 'base64'),
       subscriptionGraceHours: int(env, 'SUBSCRIPTION_GRACE_H', 48, 0),
       subscriptionPeriodSeconds: int(env, 'SUBSCRIPTION_PERIOD_S', 2_592_000, 60),
+    },
+    costs: {
+      /** Operator estimates for cost attribution (docs/12). 0 = not configured; reports show them as estimates. */
+      gpuHourUsd: num(env, 'COST_GPU_HOUR_USD', 0),
+      llmPer1kTokensUsd: num(env, 'COST_LLM_PER_1K_TOKENS_USD', 0),
+      fixedMonthlyUsd: num(env, 'COST_FIXED_MONTHLY_USD', 0),
+    },
+    analytics: {
+      instagramMediaMetrics: (env.INSTAGRAM_MEDIA_METRICS ?? 'reach,likes,comments,saved,shares,views').split(',').map((x) => x.trim()).filter(Boolean),
     },
     publishing: {
       /** Channel adapters that may execute publications, e.g. "instagram,telegram". Empty = nothing leaves the platform. */
