@@ -96,3 +96,17 @@ describe('persona prompt builder', () => {
     assert.match(msgs[0]!.content, /language "en"/);
   });
 });
+
+describe('invoice payloads', async () => {
+  const { signInvoicePayload, verifyInvoicePayload } = await import('../../src/modules/monetization/payments.js');
+  const secret = Buffer.from('unit-test-secret-unit-test-secret');
+  const id = '01920000-1111-7222-8333-444455556666';
+  it('round-trips, stays within Telegram limits and rejects tampering', () => {
+    const p = signInvoicePayload(secret, id);
+    assert.ok(p.length <= 128);
+    assert.equal(verifyInvoicePayload(secret, p), id);
+    assert.equal(verifyInvoicePayload(Buffer.from('other'), p), null);
+    assert.equal(verifyInvoicePayload(secret, p.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A'))), null);
+    assert.equal(verifyInvoicePayload(secret, 'o1.zz.yy'), null);
+  });
+});

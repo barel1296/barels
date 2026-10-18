@@ -257,3 +257,17 @@ export async function setupInfluencer(stack: Stack, slug: string, users: Users =
 export async function jobState(stack: Stack, token: string, jobId: string): Promise<any> {
   return (await stack.client(token).get(`/v1/visual-jobs/${jobId}`)).body;
 }
+
+/** Adds a user with the given role to a workspace and returns an API client for them. */
+export async function addMember(stack: Stack, workspaceId: string, role: string, name: string): Promise<{ id: string; token: string; client: Client }> {
+  return withTx(stack.svc.workerPool, async (tx) => {
+    const id = uuidv7();
+    await tx.query(
+      `INSERT INTO core.users (id, email, display_name, idp_issuer, idp_subject) VALUES ($1, $2, $3, 'local', $2::citext::text)`,
+      [id, `${name}.${id.slice(-6)}@example.test`, name],
+    );
+    await tx.query(`INSERT INTO core.memberships (workspace_id, user_id, role_id) SELECT $1, $2, id FROM core.roles WHERE key = $3 AND workspace_id IS NULL`, [workspaceId, id, role]);
+    const { token } = await issueApiToken(tx, { userId: id, workspaceId, name: 'test', createdBy: null });
+    return { id, token, client: makeClient(stack.apiUrl, token) };
+  });
+}

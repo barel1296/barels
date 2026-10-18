@@ -9,6 +9,7 @@ import type { Ctx } from '../modules/context.js';
 import type { Services } from '../services.js';
 import { registerAuthRoutes } from './auth-routes.js';
 import { registerConversationRoutes } from './conversation-routes.js';
+import { registerMonetizationRoutes } from './monetization-routes.js';
 import { registerOpsRoutes } from './ops-routes.js';
 import { registerRoutes } from './routes.js';
 
@@ -120,5 +121,6 @@ export function buildApi(svc: Services, opts: { logger?: boolean } = {}): Fastif
   registerAuthRoutes(app, svc, { app, tenant });
   registerOpsRoutes(app, svc, { app, tenant });
   registerConversationRoutes(app, svc, { app, tenant });
+  registerMonetizationRoutes(app, svc, { app, tenant });
   return app;
 }

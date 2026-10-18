@@ -62,6 +62,11 @@ export async function loadBot(db: Db | pg.Pool, accountId: string): Promise<BotR
   return maybeOne<BotRow>(db, `${BOT_SELECT} AND a.id = $1`, [accountId]);
 }
 
+/** The influencer's active bot (one bot per influencer). */
+export async function botForInfluencer(db: Db | pg.Pool, influencerId: string): Promise<BotRow | null> {
+  return maybeOne<BotRow>(db, `${BOT_SELECT} AND a.influencer_id = $1 AND a.status = 'active' AND c.status = 'active' ORDER BY a.created_at LIMIT 1`, [influencerId]);
+}
+
 const clients = new Map<string, TelegramClient>();
 
 /** Decrypts the account's credential (bot token) once per credential version and process. */
