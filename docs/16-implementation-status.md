@@ -138,6 +138,7 @@
 - `docs/evidence/platform-tests-2026-10-18/`: full automated run, 216/216 passed. 217/217 after the dashboard review fixes.
 - CI job `windows-deploy`: the Windows package and the full suite on real Windows. First green run: https://github.com/barel1296/barels/actions/runs/39137945926
 - `docs/evidence/dashboard-demo-2026-10-18/`: screenshots of every dashboard screen with demo data, a walkthrough, and the frontend features not yet implemented.
+- `deploy/demo/`: the same demo (two influencers, everything simulated) to click through interactively, in a GitHub Codespace behind a private HTTPS URL or in a local dev container. The dev container and its start/stop scripts were run in the development container; a Codespace has not been started from here.
 - `docs/evidence/m10-windows-package/`: every deployment script run under PowerShell 7 on Linux, plus the bugs that exercise found and fixed.
 - `docs/evidence/phase1-vertical-slice/`: the Phase 1 slice and conformance against the contract mock.
 

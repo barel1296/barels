@@ -1,16 +1,18 @@
-# Admin dashboard review: demo influencer "Luna Vale" (2026-10-18)
+# Admin dashboard review: demo influencers "Luna Vale" and "Nova Reyes" (2026-10-18)
 
 These are full-page screenshots of every dashboard screen. They were taken in a real headless Chromium, signed in with password + TOTP, against the **real platform build**. The platform used its own database (`golden_demo`) on a local PostgreSQL 16 server in the development container.
 
 All external systems were **SIMULATED**: Telegram (including Stars payments), Instagram, the local LLM and ComfyUI. ComfyUI sat behind the real VEC bridge. Nothing touched Telegram, Meta, a model, the RTX 5090 workstation or production.
 
-**Reproduce (any machine with Node 22 and a development PostgreSQL 16):**
+**Use it interactively:** [`deploy/demo/`](../../../deploy/demo/README.md) starts the same demo in a GitHub Codespace (a private HTTPS URL) or on your own computer.
+
+**Reproduce the screenshots (any machine with Node 22 and a development PostgreSQL 16):**
 
 ```bash
 cd apps/platform && npm ci && npm run build
 npm run demo -- --admin-url postgres://postgres:<pw>@127.0.0.1:5432/postgres --out /tmp/golden-demo --reset
 #   → prints the dashboard URL (http://127.0.0.1:8090/admin/); the sign-in details are in /tmp/golden-demo/demo-credentials.txt (mode 600)
-npm run demo:screenshots -- --out /tmp/golden-demo     # in a second terminal: these 20 PNGs
+npm run demo:screenshots -- --out /tmp/golden-demo     # in a second terminal: these 22 PNGs
 ```
 
 The demo resets the passwords of the `aios_*` roles on the server it is given, so only point it at a development server.
@@ -28,7 +30,7 @@ The demo resets the passwords of the `aios_*` roles on the server it is given, s
 | Fans | 6 Telegram fans with consent. Drafts waiting in the inbox (Mia, Priya); an auto-reply conversation (Kenji); 4 memories; 2 escalations (a request for a human, a refund request) |
 | Money | 3 active products + 1 draft; 5 Stars payments (750 ⭐) matched 1:1 in the simulated Stars ledger; 3 subscriptions; 1 refund waiting for finance approval |
 | Analytics | 14 days of KPIs. **Synthetic (inserted directly for the demo):** the Instagram follower and Telegram member history, and older dates on some fans' activity |
-| Second influencer | **Nova Reyes**, cloned from Luna: configuration only, no persona or fans |
+| Second influencer | **Nova Reyes**, Europe/Madrid, cloned from Luna (bindings, runtime settings and draft copies of Luna's products), then given her own identity: persona v1 active (same three-person approval), face reference approved, bot `novareyes_demo_bot` and a public channel, an active product "Nova Chat Plus" (120 ⭐), one generated image published to her channel, and 2 fans (Lucía with memory consent; Mateo, who bought the subscription) |
 | Ops | GPU samples from a **simulated `nvidia-smi`**; realistic open alerts (no backup yet; QA hold) |
 | People | Owner, content manager, reviewer, compliance officer, finance and chat operator, each with their own permissions |
 
@@ -54,8 +56,10 @@ The demo resets the passwords of the `aios_*` roles on the server it is given, s
 | 16 | Engines | Visual engines (health, sync), engine registration, workflow registry with approve/reject/disable |
 | 17 | Ops | Component health; alerts; dead-lettered jobs with retry; GPU samples (last hour); backups |
 | 18 | Users | Members, roles, MFA status; invite with a one-time setup token |
-| 19 | Setup (clone) | Nova Reyes after cloning: bindings copied, no persona or references |
+| 19 | Setup (second influencer) | Nova Reyes: her own active persona and face reference; the `feed_photo` binding copied from Luna |
 | 20 | Overview at phone width | The layout at 390 px |
+| 21 | Influencer (second) | Nova Reyes: runtime settings, kill switches, her bot and public channel |
+| 22 | Money (second) | Nova's active product plus the two draft products copied by the clone; one payment matched in the Stars ledger; one subscription |
 
 ## Fixed while preparing this review
 

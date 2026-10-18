@@ -52,7 +52,9 @@ const out = resolve(arg('out') ?? join(tmpdir(), 'golden-demo'));
 const platformDir = resolve(paths.repoRoot, 'apps/platform');
 
 if (!adminUrl) throw new Error('--admin-url postgres://<superuser>:<pw>@127.0.0.1:<port>/postgres is required (or DEMO_PG_ADMIN_URL)');
-if (!['127.0.0.1', 'localhost', '[::1]'].includes(new URL(adminUrl).hostname)) throw new Error('the demo only runs against a PostgreSQL server on this machine');
+// Loopback only, plus host names listed in DEMO_ALLOWED_DB_HOSTS (e.g. the private `db` service of the dev container).
+const allowedHosts = ['127.0.0.1', 'localhost', '[::1]', ...(process.env.DEMO_ALLOWED_DB_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean)];
+if (!allowedHosts.includes(new URL(adminUrl).hostname)) throw new Error('the demo only runs against a PostgreSQL server on this machine (or a host in DEMO_ALLOWED_DB_HOSTS)');
 if (!/^[a-z_][a-z0-9_]{0,62}$/.test(dbName)) throw new Error('invalid --db');
 if (!existsSync(join(platformDir, 'dist/src/main.js'))) throw new Error('run `npm run build` first (the demo starts the built platform)');
 mkdirSync(out, { recursive: true });
@@ -370,42 +372,42 @@ log('content, plans and publications ready');
 // ---------------------------------------------------------------------------------------------
 const fan = (id: number, first_name: string, username: string): TgUser => ({ id, is_bot: false, first_name, username }) as TgUser;
 const fans = { mia: fan(910001, 'Mia', 'mia_travels'), jonas: fan(910002, 'Jonas', 'jonas.k'), priya: fan(910003, 'Priya', 'priya_hikes'), leo: fan(910004, 'Leo', 'leo_b'), sofia: fan(910005, 'Sofia', 'sofi'), kenji: fan(910006, 'Kenji', 'kenji_jazz') };
-const sentTo = (u: TgUser) => tg.sent(botToken, 'sendMessage').filter((c) => String(c.params.chat_id) === String(u.id)).length;
-async function say(u: TgUser, text: string): Promise<void> {
+const sentTo = (u: TgUser, tok = botToken) => tg.sent(tok, 'sendMessage').filter((c) => String(c.params.chat_id) === String(u.id)).length;
+async function say(u: TgUser, text: string, tok = botToken): Promise<void> {
   const before = await db.query('SELECT count(*)::int AS n FROM conversation.messages m JOIN conversation.conversations c ON c.id = m.conversation_id WHERE c.external_chat_id = $1', [String(u.id)]).catch(() => ({ rows: [{ n: 0 }] }));
-  tg.userMessage(botToken, u, text);
+  tg.userMessage(tok, u, text);
   await until(`message from ${u.first_name}`, async () => (await db.query('SELECT count(*)::int AS n FROM conversation.messages m JOIN conversation.conversations c ON c.id = m.conversation_id WHERE c.external_chat_id = $1', [String(u.id)])).rows[0].n > before.rows[0].n);
   await sleep(900);
 }
-async function onboard(u: TgUser, memory = false): Promise<void> {
-  const n = sentTo(u);
-  tg.userMessage(botToken, u, '/start');
-  await until(`consent prompt for ${u.first_name}`, async () => sentTo(u) > n);
-  const m = sentTo(u);
-  tg.callback(botToken, u, 'consent:accept');
-  await until(`welcome for ${u.first_name}`, async () => sentTo(u) > m);
+async function onboard(u: TgUser, memory = false, tok = botToken): Promise<void> {
+  const n = sentTo(u, tok);
+  tg.userMessage(tok, u, '/start');
+  await until(`consent prompt for ${u.first_name}`, async () => sentTo(u, tok) > n);
+  const m = sentTo(u, tok);
+  tg.callback(tok, u, 'consent:accept');
+  await until(`welcome for ${u.first_name}`, async () => sentTo(u, tok) > m);
   if (memory) {
     // Fan memory is a separate, optional consent ("Yes, remember").
-    const k = sentTo(u);
-    tg.callback(botToken, u, 'memory:on');
-    await until(`memory consent for ${u.first_name}`, async () => sentTo(u) > k);
+    const k = sentTo(u, tok);
+    tg.callback(tok, u, 'memory:on');
+    await until(`memory consent for ${u.first_name}`, async () => sentTo(u, tok) > k);
   }
 }
-async function buy(u: TgUser, productId: string, subscription = false): Promise<string> {
-  const n = tg.sent(botToken, 'createInvoiceLink').length;
-  tg.callback(botToken, u, `buy:${productId}`);
-  await until('invoice', async () => tg.sent(botToken, 'createInvoiceLink').length > n);
-  const invoice = tg.sent(botToken, 'createInvoiceLink').at(-1)!.params;
+async function buy(u: TgUser, productId: string, subscription = false, tok = botToken): Promise<string> {
+  const n = tg.sent(tok, 'createInvoiceLink').length;
+  tg.callback(tok, u, `buy:${productId}`);
+  await until('invoice', async () => tg.sent(tok, 'createInvoiceLink').length > n);
+  const invoice = tg.sent(tok, 'createInvoiceLink').at(-1)!.params;
   const payload = String(invoice.payload);
   const amount = (invoice.prices as { amount: number }[])[0]!.amount;
   const answers = tg.preCheckoutAnswers.size;
-  tg.preCheckout(botToken, u, payload, amount);
+  tg.preCheckout(tok, u, payload, amount);
   await until('pre-checkout', async () => tg.preCheckoutAnswers.size > answers);
   const chargeId = `stxDEMO${u.id}${Date.now() % 100000}`;
-  tg.successfulPayment(botToken, u, { payload, amount, chargeId, ...(subscription ? { subscriptionExpiration: Math.floor(Date.now() / 1000) + 30 * 86400, isRecurring: true, isFirstRecurring: true } : {}) });
+  tg.successfulPayment(tok, u, { payload, amount, chargeId, ...(subscription ? { subscriptionExpiration: Math.floor(Date.now() / 1000) + 30 * 86400, isRecurring: true, isFirstRecurring: true } : {}) });
   await until('payment', async () => (await db.query('SELECT 1 FROM monetization.payments WHERE telegram_payment_charge_id = $1', [chargeId])).rowCount === 1);
   // Telegram's Stars ledger has the same transaction, so reconciliation matches it.
-  tg.addStarTransaction(botToken, { id: chargeId, amount, date: Math.floor(Date.now() / 1000), source: { type: 'user', user: u, invoice_payload: payload } });
+  tg.addStarTransaction(tok, { id: chargeId, amount, date: Math.floor(Date.now() / 1000), source: { type: 'user', user: u, invoice_payload: payload } });
   return chargeId;
 }
 const convOf = async (u: TgUser) => (await db.query('SELECT id FROM conversation.conversations WHERE external_chat_id = $1', [String(u.id)])).rows[0]?.id as string;
@@ -441,14 +443,54 @@ await api(O, 'POST', '/v1/autonomy-policies', { influencer_id: L, action_type: '
 // ---------------------------------------------------------------------------------------------
 // A second influencer from the golden template, and two weeks of (synthetic) history.
 // ---------------------------------------------------------------------------------------------
-await api(O, 'POST', `/v1/influencers/${L}/clone`, {
+const cloned = await api(O, 'POST', `/v1/influencers/${L}/clone`, {
   slug: 'nova-reyes',
   display_name: 'Nova Reyes',
   ai_disclosure_short: 'AI-generated virtual creator',
   ai_disclosure_long: 'Nova Reyes is an AI-generated virtual character. Images are AI-generated; messages are automated.',
   timezone: 'Europe/Madrid',
-  primary_language: 'es',
+  primary_language: 'en',
 });
+// The clone brings configuration only; Nova gets her own identity, bot, fans and content.
+const N = cloned.influencer.id as string;
+const novaPersona = {
+  personality: { traits: ['adventurous', 'sunny', 'witty'], values: ['curiosity', 'slow travel'], boundaries: ['no politics', 'no explicit content', 'never claims to be human'] },
+  writing_style: { tone: 'upbeat', emoji_policy: 'moderate', sentence_length: 'short' },
+  biography: { fictional: true, age_years: 29, home_city: 'Madrid (fictional backstory)', occupation: 'travel creator', hobbies: ['night trains', 'street food', 'flamenco guitar'] },
+  visual_identity: { hair: 'black curls', eyes: 'brown', palette: ['coral', 'cobalt', 'cream'], photo_style: 'bright daylight, wide angle' },
+  conversation_rules: { disclosure: 'I am an AI-generated virtual creator.', relationship_framing: 'friendly, never romantic exclusivity' },
+};
+const npv = await api(M, 'POST', `/v1/influencers/${N}/persona-versions`, { ...novaPersona, change_summary: 'First persona' });
+await api(M, 'POST', `/v1/persona-versions/${npv.id}/submit`);
+await api(compliance.token, 'POST', `/v1/persona-versions/${npv.id}/approve`);
+await api(O, 'POST', `/v1/persona-versions/${npv.id}/activate`);
+const novaFace = await api(M, 'POST', `/v1/influencers/${N}/reference-assets?kind=face_canonical`, undefined, { bytes: encodeSolidPng(96, 96, [232, 116, 97]), type: 'image/png' });
+await api(compliance.token, 'POST', `/v1/reference-assets/${novaFace.id}/approve`);
+await api(O, 'PATCH', `/v1/influencers/${N}/runtime-config`, { paused: false, free_replies_per_day: 10, default_conversation_mode: 'ai_draft', memory_enabled: true });
+await api(O, 'POST', `/v1/influencers/${N}/status`, { status: 'active' });
+const novaBotToken = tg.addBot('novareyes_demo_bot').token;
+const novaBot = await api(O, 'POST', `/v1/influencers/${N}/telegram/bot`, { token: novaBotToken });
+const novaPublic = await api(O, 'POST', `/v1/influencers/${N}/channels`, { integration_account_id: novaBot.account_id, kind: 'telegram_public_channel', external_id: '-1002223334445', username: 'novareyes_demo' });
+const novaPlus = await api(M, 'POST', `/v1/influencers/${N}/products`, { sku: 'nova-plus', kind: 'bot_subscription', name: 'Nova Chat Plus', description: 'More daily messages with Nova (AI).', price_stars: 120, grants: [{ kind: 'bot_premium_tier' }] });
+await api(M, 'POST', `/v1/products/${novaPlus.id}/submit`);
+await api(O, 'POST', `/v1/products/${novaPlus.id}/approve`);
+const novaJob = await api(M, 'POST', `/v1/influencers/${N}/visual-jobs`, { idempotency_key: `demo-nova-${Date.now()}`, purpose: 'feed_photo', parameters: { scene: 'Night train window at sunrise', mood: 'dreamy', seed: 4242 }, output_count: 1 });
+await until('Nova generation', async () => ['succeeded', 'failed', 'cancelled'].includes((await api(M, 'GET', `/v1/visual-jobs/${novaJob.id}`)).state));
+const novaAsset = (await api(M, 'GET', `/v1/influencers/${N}/media-assets?visual_job_id=${novaJob.id}`))[0]?.id as string | undefined;
+if (novaAsset) {
+  const item = await api(M, 'POST', `/v1/influencers/${N}/content-items`, { format: 'tg_post', brief: { theme: 'Night trains' } });
+  const rev = await api(M, 'POST', `/v1/content-items/${item.id}/revisions`, { caption: 'Woke up somewhere new again 🚆 Where should the next night train go?', assets: [{ media_asset_id: novaAsset, role: 'primary' }] });
+  await approveContent(rev.id);
+  await api(M, 'POST', `/v1/content-items/${item.id}/publications`, { channel_id: novaPublic.id, scheduled_for: new Date().toISOString() });
+}
+const lucia = fan(920001, 'Lucía', 'lucia_viaja');
+const mateo = fan(920002, 'Mateo', 'mateo.m');
+await onboard(lucia, true, novaBotToken);
+await onboard(mateo, false, novaBotToken);
+await say(lucia, 'hola Nova! where are you travelling next?', novaBotToken);
+await say(mateo, 'love your photos from Madrid', novaBotToken);
+await buy(mateo, novaPlus.id, true, novaBotToken);
+log('Nova Reyes configured with her own persona, bot, fans and content');
 // DEMO ONLY: audience history and older activity so the analytics charts have two weeks of data.
 const shifts: [TgUser, number][] = [[fans.jonas, 9], [fans.priya, 6], [fans.leo, 4], [fans.kenji, 2]];
 for (const [u, days] of shifts) {
@@ -497,7 +539,7 @@ writeFileSync(
 chmodSync(credentials, 0o600);
 writeFileSync(
   join(out, 'demo-state.json'),
-  JSON.stringify({ base, ownerEmail, credentials, influencerId: L, mia: await convOf(fans.mia), pendingApproval: pendingReq.id, cloneSlug: 'nova-reyes' }, null, 2),
+  JSON.stringify({ base, ownerEmail, credentials, influencerId: L, novaId: N, mia: await convOf(fans.mia), pendingApproval: pendingReq.id, cloneSlug: 'nova-reyes' }, null, 2),
 );
 log(`READY: ${base}/admin/  (sign-in details in ${credentials}; Ctrl+C to stop)`);
 
@@ -522,6 +564,8 @@ function scriptLlm(): void {
     [/sunset|river/i, 'Thank you! That one was pure golden hour luck on the river ✨ Do you have a favourite sunset spot?'],
     [/cat|miso/i, 'Hi Miso! 🐱 Is she the bossy type or the cuddly type?'],
     [/jazz|piano/i, 'Jazz piano on weekends sounds dreamy 🎹 What do you love playing most?'],
+    [/travel/i, 'Next stop: a night train to the coast 🚆 Any place you think I should see?'],
+    [/madrid/i, 'Gracias! Madrid at golden hour is unbeatable ☀️ Have you been?'],
   ];
   llm.respond((r) => {
     if (!r.messages[0]?.content.includes('PLATFORM RULES')) return undefined;

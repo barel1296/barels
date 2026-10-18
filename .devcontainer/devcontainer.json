@@ -1,0 +1,22 @@
+{
+  "name": "Golden Influencer: dashboard demo (simulated services)",
+  "dockerComposeFile": "compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  // A random database password, created once on the host and never committed (.gitignore).
+  "initializeCommand": "test -f .devcontainer/.env || printf 'POSTGRES_PASSWORD=%s\\n' \"$(od -An -N16 -tx1 /dev/urandom | tr -d ' \\n')\" > .devcontainer/.env",
+  "postCreateCommand": "cd apps/platform && npm ci --no-audit --no-fund && npm run build",
+  // Starts the demo (about a minute); stop it with deploy/demo/stop.sh.
+  "postStartCommand": "bash deploy/demo/start.sh",
+  // Only the dashboard is forwarded. Codespaces keeps forwarded ports PRIVATE (GitHub sign-in) unless
+  // someone changes it: leave it private. PostgreSQL and the simulators are never forwarded.
+  "forwardPorts": [8090],
+  "portsAttributes": {
+    "8090": { "label": "Dashboard demo (private)", "onAutoForward": "notify" }
+  },
+  "otherPortsAttributes": { "onAutoForward": "ignore" },
+  "hostRequirements": { "cpus": 2, "memory": "4gb" },
+  "customizations": {
+    "codespaces": { "openFiles": ["deploy/demo/README.md"] }
+  }
+}

@@ -13,7 +13,7 @@ import { totpAt } from '../src/lib/totp.js';
 
 const i = process.argv.indexOf('--out');
 const out = resolve(i >= 0 ? process.argv[i + 1]! : join(tmpdir(), 'golden-demo'));
-const state = JSON.parse(readFileSync(join(out, 'demo-state.json'), 'utf8')) as { base: string; credentials: string; influencerId: string; mia: string; pendingApproval: string; cloneSlug: string };
+const state = JSON.parse(readFileSync(join(out, 'demo-state.json'), 'utf8')) as { base: string; credentials: string; influencerId: string; novaId?: string; mia: string; pendingApproval: string; cloneSlug: string };
 const creds = readFileSync(state.credentials, 'utf8');
 const field = (label: string) => new RegExp(`^${label}:\\s*(.+)$`, 'm').exec(creds)?.[1]?.trim() ?? '';
 const email = field('Email');
@@ -67,7 +67,7 @@ const screens: [string, string][] = [
   ['16-engines', '#/engines'],
   ['17-ops', '#/ops'],
   ['18-users', '#/users'],
-  ...(clone ? ([['19-setup-cloned-influencer', `#/setup/${clone.id}`]] as [string, string][]) : []),
+  ...(clone ? ([['19-setup-cloned-influencer', `#/setup/${clone.id}`], ['21-second-influencer', `#/influencer/${clone.id}`], ['22-second-influencer-money', `#/money/${clone.id}`]] as [string, string][]) : []),
 ];
 for (const [name, hash] of screens) {
   await page.goto(`${state.base}/admin/${hash}`);

@@ -1,3 +1,6 @@
 ops/.env
 var/
 node_modules/
+# Local demo output (throwaway credentials) and the dev container database password
+.demo/
+.devcontainer/.env

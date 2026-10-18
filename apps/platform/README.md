@@ -331,16 +331,22 @@ On the workstation, `deploy/windows/backup.ps1` and `restore.ps1` do this (verif
 
 ## Local demo (visual review of the dashboard)
 
-`npm run demo` starts the real platform build against a separate database on a **development** PostgreSQL server. All external systems are simulated, in-process: Telegram (including Stars), Instagram, the LLM, and ComfyUI behind the real bridge. It then seeds a demo influencer, "Luna Vale", through the API, covering persona, media, content, plans, fans, chats, payments and analytics.
+`npm run demo` starts the real platform build against a separate database on a **development** PostgreSQL server. All external systems are simulated, in-process: Telegram (including Stars), Instagram, the LLM, and ComfyUI behind the real bridge. It then seeds two demo influencers through the API:
+
+- "Luna Vale": persona, media, content, plans, fans, chats, payments and analytics;
+- "Nova Reyes": cloned from Luna, then given her own persona, bot, fans, product and post.
+
+**To click through it in a browser,** use [`deploy/demo/`](../../deploy/demo/README.md). It runs the same demo in a GitHub Codespace (a private HTTPS URL behind GitHub sign-in) or in a local dev container, and stops with `deploy/demo/stop.sh`.
 
 ```bash
 npm run build
 npm run demo -- --admin-url postgres://postgres:<pw>@127.0.0.1:5432/postgres --out /tmp/golden-demo --reset
 # → http://127.0.0.1:8090/admin/ ; sign-in details in /tmp/golden-demo/demo-credentials.txt (mode 600, never printed)
+npm run demo:totp -- --out /tmp/golden-demo          # the current 6-digit sign-in code
 npm run demo:screenshots -- --out /tmp/golden-demo   # full-page PNGs of every screen (real Chromium)
 ```
 
-- It refuses non-loopback servers.
+- It refuses database servers that are not on loopback, unless they are listed in `DEMO_ALLOWED_DB_HOSTS`.
 - It resets the `aios_*` role passwords on the server it is given, so use a development server only.
 
 The latest screenshots and the list of frontend gaps are in [`docs/evidence/dashboard-demo-2026-10-18/`](../../docs/evidence/dashboard-demo-2026-10-18/README.md).

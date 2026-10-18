@@ -22,7 +22,8 @@
     "comfy-bridge": "tsx src/comfy-bridge/main.ts",
     "simulators": "tsx src/simulators/main.ts",
     "demo": "tsx scripts/demo.ts",
-    "demo:screenshots": "tsx scripts/demo-screenshots.ts"
+    "demo:screenshots": "tsx scripts/demo-screenshots.ts",
+    "demo:totp": "tsx scripts/demo-totp.ts"
   },
   "dependencies": {
     "ajv": "8.20.0",
