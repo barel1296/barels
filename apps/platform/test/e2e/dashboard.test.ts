@@ -136,6 +136,7 @@ describe('admin dashboard (real Chromium; SIMULATED Telegram + LLM)', () => {
     assert.equal(flag.rows[0].value, true);
     for (const [nav, heading] of [
       ['Calendar', 'Content calendar'],
+      ['Media', 'Media library'],
       ['Agents', 'Agents'],
       ['Money', 'Monetization'],
       ['Analytics', 'Analytics'],
@@ -146,6 +147,7 @@ describe('admin dashboard (real Chromium; SIMULATED Telegram + LLM)', () => {
       await page.click(`nav a:has-text("${nav}")`);
       await page.waitForSelector(`h1:has-text("${heading}")`);
       assert.equal(await page.locator('.notice:has-text("Could not load")').count(), 0, `${nav} loaded without errors`);
+      if (nav === 'Media') assert.equal(await page.locator('.tile img').first().evaluate((el) => (el as unknown as { naturalWidth: number }).naturalWidth), 48);
       if (nav === 'Calendar') assert.ok(await page.locator('td:has-text("Sunday market")').count(), 'the calendar shows the planned item');
     }
   });

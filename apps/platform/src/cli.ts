@@ -13,6 +13,9 @@ import { readFile } from 'node:fs/promises';
 import { sealAuditLog, verifyAuditChain } from './modules/audit-seal.js';
 import { ensurePartitions } from './modules/maintenance.js';
 import { healthReport } from './modules/monitoring.js';
+import { benchmarkLlm } from './modules/llm/bench.js';
+import { LlmGateway } from './modules/llm/gateway.js';
+import { writeFile } from 'node:fs/promises';
 import { enrollTotp, issueSetupToken, setPassword } from './modules/sessions.js';
 
 type Flags = Record<string, string | true>;
@@ -242,6 +245,16 @@ const commands: Record<string, { help: string; run: (f: Flags) => Promise<void> 
       } finally {
         await closeServices(svc);
       }
+    },
+  },
+  'llm:bench': {
+    help: 'Measure the configured local LLM (--runs 20 --concurrency 2 [--out report.json]); needs LLM_BASE_URL and LLM_CHAT_MODEL',
+    run: async (f) => {
+      const cfg = loadConfig();
+      const report = await benchmarkLlm(new LlmGateway(cfg.llm), { runs: Number(f.runs ?? 20), concurrency: Number(f.concurrency ?? 2), baseUrl: cfg.llm.baseUrl });
+      const text = JSON.stringify(report, null, 2);
+      if (typeof f.out === 'string') await writeFile(f.out, text);
+      console.log(text);
     },
   },
   'worker:once': {

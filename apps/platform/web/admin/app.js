@@ -494,6 +494,40 @@ async function calendarPage(view, id) {
   );
 }
 
+async function mediaPage(view, id) {
+  id = id ?? state.influencers[0]?.id;
+  view.append(h('h1', {}, 'Media library'), influencerPicker(id, (v) => (location.hash = `#/media/${v}`)));
+  if (!id) return;
+  const assets = await api('GET', `/v1/influencers/${id}/media-assets`);
+  if (!assets.length) {
+    view.append(h('p', { class: 'muted' }, 'No media yet. Generated images arrive here after automated checks.'));
+    return;
+  }
+  view.append(
+    h(
+      'div',
+      { class: 'panel thumbs' },
+      assets.map((a) =>
+        h(
+          'figure',
+          { class: 'tile' },
+          a.kind === 'image' ? h('img', { src: `/v1/media-assets/${a.id}/preview`, alt: `${a.origin} ${a.kind}`, loading: 'lazy' }) : h('div', { class: 'muted' }, a.mime_type),
+          h(
+            'figcaption',
+            { class: 'muted' },
+            badge(a.status, a.status === 'valid' ? 'ok' : a.status === 'rejected' || a.status === 'quarantined' ? 'bad' : 'warn'),
+            ' ',
+            a.origin,
+            a.engine_kind ? ` · ${a.engine_kind}` : '',
+            a.engine_kind === 'contract_mock' ? h('div', {}, 'test output — never publishable') : null,
+            a.status_reason ? h('div', {}, a.status_reason) : null,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 async function agentsPage(view) {
   view.append(h('h1', {}, 'Agents'));
   const [agents, proposals, policies] = await Promise.all([api('GET', '/v1/agents'), api('GET', '/v1/proposals'), api('GET', '/v1/autonomy-policies')]);
@@ -739,6 +773,7 @@ const NAV = [
   { hash: '#/inbox', label: 'Inbox', perm: 'conversation.read' },
   { hash: '#/escalations', label: 'Escalations', perm: 'conversation.read' },
   { hash: '#/calendar', label: 'Calendar', perm: 'content.read' },
+  { hash: '#/media', label: 'Media', perm: 'content.read' },
   { hash: '#/agents', label: 'Agents', perm: 'proposal.read' },
   { hash: '#/money', label: 'Money', perm: 'influencer.read' },
   { hash: '#/analytics', label: 'Analytics', perm: 'analytics.read' },
@@ -757,6 +792,7 @@ const ROUTES = [
   [/^#\/conversation\/([0-9a-f-]{36})$/, conversationPage],
   [/^#\/escalations$/, escalationsPage],
   [/^#\/calendar(?:\/([0-9a-f-]{36}))?$/, calendarPage],
+  [/^#\/media(?:\/([0-9a-f-]{36}))?$/, mediaPage],
   [/^#\/agents$/, agentsPage],
   [/^#\/money(?:\/([0-9a-f-]{36}))?$/, moneyPage],
   [/^#\/analytics(?:\/([0-9a-f-]{36}))?$/, analyticsPage],

@@ -8,6 +8,7 @@ import * as history from '../modules/history.js';
 import * as identity from '../modules/identity.js';
 import * as integrations from '../modules/integrations.js';
 import * as publishing from '../modules/publishing.js';
+import { cloneInfluencer } from '../modules/templates.js';
 import * as engines from '../modules/visual/engines.js';
 import * as jobs from '../modules/visual/jobs.js';
 import * as workflows from '../modules/visual/workflows.js';
@@ -138,6 +139,30 @@ export function registerRoutes(app: FastifyInstance, svc: Services, api: Api): v
     },
     async (req, reply) =>
       reply.status(201).send(await tenant(req, (db, ctx) => identity.createInfluencer(db, ctx, req.body, { gpuQuotaSecondsPerDay: cfg.defaultGpuQuotaSecondsPerDay }))),
+  );
+
+  // Golden template replication: configuration only (see modules/templates.ts for what is never copied).
+  app.post<{ Params: { id: string }; Body: Omit<identity.CreateInfluencerInput, 'runtime'> }>(
+    '/v1/influencers/:id/clone',
+    {
+      schema: {
+        params: idParams,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['slug', 'display_name', 'ai_disclosure_short', 'ai_disclosure_long', 'timezone', 'primary_language'],
+          properties: {
+            slug: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{1,62}$' },
+            display_name: text(120),
+            ai_disclosure_short: text(200),
+            ai_disclosure_long: text(2000),
+            timezone: text(64),
+            primary_language: { type: 'string', pattern: '^[a-z]{2,3}(-[A-Z]{2})?$' },
+          },
+        },
+      },
+    },
+    async (req, reply) => reply.status(201).send(await tenant(req, (db, ctx) => cloneInfluencer(db, ctx, req.params.id, req.body, { gpuQuotaSecondsPerDay: cfg.defaultGpuQuotaSecondsPerDay }))),
   );
 
   app.get('/v1/influencers', async (req) => tenant(req, (db, ctx) => identity.listInfluencers(db, ctx)));
