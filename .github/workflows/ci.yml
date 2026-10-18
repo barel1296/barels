@@ -11,7 +11,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/platform
@@ -36,13 +36,15 @@ jobs:
           cache: npm
           cache-dependency-path: apps/platform/package-lock.json
       - run: npm ci
+      - name: Chromium for the dashboard smoke test
+        run: npx playwright-core install --with-deps chromium
       - name: Typecheck
         run: npm run typecheck
       - name: Unit tests (contract artifacts, scheduler, state machine, crypto, QA)
         run: npm run test:unit
       - name: Integration tests (PostgreSQL 16, production role model)
         run: npm run test:integration
-      - name: End-to-end tests (vertical slice + failure handling against the CONTRACT MOCK)
+      - name: End-to-end tests (contract mock, simulated Telegram/Instagram/LLM/ComfyUI, real Chromium for the dashboard)
         run: npm run test:e2e
       - name: Conformance runner against the contract mock (CLI)
         run: |

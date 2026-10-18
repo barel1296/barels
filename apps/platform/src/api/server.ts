@@ -13,6 +13,7 @@ import { registerMonetizationRoutes } from './monetization-routes.js';
 import { registerPublishingRoutes } from './publishing-routes.js';
 import { registerAgentRoutes } from './agents-routes.js';
 import { registerAnalyticsRoutes } from './analytics-routes.js';
+import { registerWebRoutes } from './web-routes.js';
 import { registerOpsRoutes } from './ops-routes.js';
 import { registerRoutes } from './routes.js';
 
@@ -128,5 +129,6 @@ export function buildApi(svc: Services, opts: { logger?: boolean } = {}): Fastif
   registerPublishingRoutes(app, svc, { app, tenant });
   registerAgentRoutes(app, svc, { app, tenant });
   registerAnalyticsRoutes(app, svc, { app, tenant });
+  registerWebRoutes(app, svc, { app, tenant });
   return app;
 }

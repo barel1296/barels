@@ -1,0 +1,69 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --text: #1c2430;
+  --muted: #5f6b7a;
+  --line: #dde2e8;
+  --accent: #b8860b;
+  --accent-ink: #ffffff;
+  --ok: #1f7a4a;
+  --warn: #a15c00;
+  --bad: #b3261e;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12161c;
+    --panel: #1a2029;
+    --text: #e6ebf1;
+    --muted: #9aa6b4;
+    --line: #2b3440;
+  }
+}
+body { margin: 0; background: var(--bg); }
+header#top { display: flex; align-items: center; gap: 16px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; z-index: 2; }
+.brand { color: var(--accent); }
+nav#nav { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+nav#nav a { padding: 6px 10px; border-radius: 6px; color: var(--text); text-decoration: none; }
+nav#nav a.active, nav#nav a:hover { background: var(--bg); }
+#who { color: var(--muted); font-size: 12px; }
+main { padding: 16px; max-width: 1400px; margin: 0 auto; }
+h1 { font-size: 20px; margin: 4px 0 12px; }
+h2 { font-size: 16px; margin: 20px 0 8px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; overflow-x: auto; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.stat .v { font-size: 22px; font-weight: 600; }
+.stat .k { color: var(--muted); font-size: 12px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+button, .btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; }
+button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
+button.danger { background: var(--bad); }
+button:disabled { opacity: 0.5; cursor: default; }
+input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); }
+textarea { width: 100%; min-height: 70px; box-sizing: border-box; }
+form.stack { display: grid; gap: 8px; max-width: 420px; }
+form.inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; border: 1px solid var(--line); }
+.badge.ok { color: var(--ok); border-color: var(--ok); }
+.badge.warn { color: var(--warn); border-color: var(--warn); }
+.badge.bad { color: var(--bad); border-color: var(--bad); }
+.muted { color: var(--muted); }
+.msg { padding: 8px 10px; border-radius: 8px; margin: 6px 0; max-width: 75%; white-space: pre-wrap; }
+.msg.inbound { background: var(--bg); border: 1px solid var(--line); }
+.msg.outbound { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); margin-left: auto; }
+.msg.drafted { border: 2px dashed var(--accent); }
+.msg .meta { font-size: 11px; color: var(--muted); }
+.thumbs img { max-width: 220px; max-height: 220px; border-radius: 6px; border: 1px solid var(--line); margin: 4px; }
+pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; background: var(--bg); padding: 8px; border-radius: 6px; }
+#toast { position: fixed; bottom: 16px; right: 16px; background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; max-width: 420px; }
+#toast.show { opacity: 0.95; }
+.login { max-width: 360px; margin: 10vh auto; }
+.notice { border-left: 3px solid var(--accent); padding: 6px 10px; background: var(--panel); margin: 8px 0; }
