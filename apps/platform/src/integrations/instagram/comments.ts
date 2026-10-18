@@ -171,8 +171,8 @@ export async function replyToComment(svc: Services, db: Db, ctx: Ctx, commentId:
   if (violations.length) throw new AppError(422, 'GUARD_VIOLATION', 'The reply breaks platform rules', { violations });
   const actionId = uuidv7();
   await db.query(
-    `INSERT INTO publishing.comment_actions (id, workspace_id, comment_id, action, body, actor_type, actor_id, status) VALUES ($1, $2, $3, 'reply', $4, 'user', $5, 'pending')`,
-    [actionId, ctx.workspaceId, commentId, body, ctx.userId],
+    `INSERT INTO publishing.comment_actions (id, workspace_id, comment_id, action, body, actor_type, actor_id, status) VALUES ($1, $2, $3, 'reply', $4, $5, $6, 'pending')`,
+    [actionId, ctx.workspaceId, commentId, body, ctx.actor.type === 'agent' ? 'agent' : ctx.actor.type === 'system' ? 'system' : 'user', ctx.actor.id],
   );
   const ig = await instagramClientFor(svc, c.integration_account_id);
   try {
@@ -195,8 +195,8 @@ export async function setCommentHidden(svc: Services, db: Db, ctx: Ctx, commentI
     throw new AppError(502, 'INSTAGRAM_ERROR', err.message);
   });
   await db.query(
-    `INSERT INTO publishing.comment_actions (workspace_id, comment_id, action, actor_type, actor_id, status) VALUES ($1, $2, $3, 'user', $4, 'done')`,
-    [ctx.workspaceId, commentId, hide ? 'hide' : 'unhide', ctx.userId],
+    `INSERT INTO publishing.comment_actions (workspace_id, comment_id, action, actor_type, actor_id, status) VALUES ($1, $2, $3, $4, $5, 'done')`,
+    [ctx.workspaceId, commentId, hide ? 'hide' : 'unhide', ctx.actor.type === 'agent' ? 'agent' : 'user', ctx.actor.id],
   );
   const status = hide ? 'hidden' : 'new';
   await db.query(`UPDATE publishing.comments SET status = $2 WHERE id = $1`, [commentId, status]);

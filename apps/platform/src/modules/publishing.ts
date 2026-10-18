@@ -258,6 +258,16 @@ export async function publisherTick(svc: Services): Promise<{ held: number; publ
         await holdPublication(db, pub, 'CHANNEL_UNAVAILABLE', 'channel is paused, disconnected or frozen');
         return null;
       }
+      const stop = await maybeOne<{ key: string }>(
+        db,
+        `SELECT key FROM core.feature_flags WHERE key = 'kill_switch.publishing' AND value = 'true'::jsonb
+            AND (workspace_id IS NULL OR workspace_id = $1) AND (influencer_id IS NULL OR influencer_id = $2) LIMIT 1`,
+        [pub.workspace_id, pub.influencer_id],
+      );
+      if (stop) {
+        await holdPublication(db, pub, 'KILL_SWITCH', 'publishing is stopped by a kill switch');
+        return null;
+      }
       if (pub.influencer_status !== 'active') {
         await holdPublication(db, pub, 'INFLUENCER_NOT_ACTIVE', `influencer is ${pub.influencer_status}`);
         return null;

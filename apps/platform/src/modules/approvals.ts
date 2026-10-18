@@ -26,7 +26,7 @@ function publicApproval(r: ApprovalRow): Record<string, unknown> {
 }
 
 export async function listApprovals(db: Db, ctx: Ctx, status = 'pending'): Promise<unknown[]> {
-  requirePermission(ctx, 'content.read');
+  if (!ctx.permissions.has('content.read') && !ctx.permissions.has('proposal.read')) requirePermission(ctx, 'content.read');
   const { rows } = await db.query<ApprovalRow>(
     `SELECT * FROM approvals.approval_requests WHERE status = $1 ORDER BY priority, created_at LIMIT 200`,
     [status],
@@ -35,7 +35,7 @@ export async function listApprovals(db: Db, ctx: Ctx, status = 'pending'): Promi
 }
 
 export async function getApproval(db: Db, ctx: Ctx, id: string): Promise<Record<string, unknown>> {
-  requirePermission(ctx, 'content.read');
+  if (!ctx.permissions.has('content.read') && !ctx.permissions.has('proposal.read')) requirePermission(ctx, 'content.read');
   const row = await maybeOne<ApprovalRow>(db, 'SELECT * FROM approvals.approval_requests WHERE id = $1', [id]);
   if (!row) throw notFound('Approval request', id);
   if (row.influencer_id) requireInfluencerAccess(ctx, row.influencer_id);
@@ -44,7 +44,8 @@ export async function getApproval(db: Db, ctx: Ctx, id: string): Promise<Record<
        FROM approvals.approval_decisions WHERE approval_request_id = $1 ORDER BY decided_at`,
     [id],
   );
-  return { ...publicApproval(row), decisions: decisions.rows };
+  const qa = await db.query(`SELECT reviewer_id, verdict, issues, created_at FROM approvals.qa_reviews WHERE subject_id = $1 ORDER BY created_at`, [row.subject_id]);
+  return { ...publicApproval(row), decisions: decisions.rows, qa_reviews: qa.rows };
 }
 
 const ITEM_STATUS_AFTER: Record<string, string> = {
@@ -65,10 +66,11 @@ export async function decide(
   approvalId: string,
   input: { decision: 'approve' | 'reject' | 'request_changes'; payload_hash: string; comment?: string | null },
 ): Promise<Record<string, unknown>> {
-  requirePermission(ctx, 'content.approve');
   if (!ctx.userId) throw forbidden('Only a human user can decide approval requests');
   const req = await maybeOne<ApprovalRow>(db, 'SELECT * FROM approvals.approval_requests WHERE id = $1 FOR UPDATE', [approvalId]);
   if (!req) throw notFound('Approval request', approvalId);
+  // Content is approved by reviewers; agent proposals by the roles that own the action.
+  requirePermission(ctx, req.subject_type === 'agent_proposal' ? 'proposal.approve' : 'content.approve');
   if (req.influencer_id) requireInfluencerAccess(ctx, req.influencer_id);
   if (req.requested_by_type === 'user' && req.requested_by_id === ctx.userId) {
     throw forbidden('SELF_APPROVAL_FORBIDDEN: the requester cannot decide their own request');

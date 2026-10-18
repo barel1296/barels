@@ -11,6 +11,7 @@ import { registerAuthRoutes } from './auth-routes.js';
 import { registerConversationRoutes } from './conversation-routes.js';
 import { registerMonetizationRoutes } from './monetization-routes.js';
 import { registerPublishingRoutes } from './publishing-routes.js';
+import { registerAgentRoutes } from './agents-routes.js';
 import { registerOpsRoutes } from './ops-routes.js';
 import { registerRoutes } from './routes.js';
 
@@ -124,5 +125,6 @@ export function buildApi(svc: Services, opts: { logger?: boolean } = {}): Fastif
   registerConversationRoutes(app, svc, { app, tenant });
   registerMonetizationRoutes(app, svc, { app, tenant });
   registerPublishingRoutes(app, svc, { app, tenant });
+  registerAgentRoutes(app, svc, { app, tenant });
   return app;
 }
