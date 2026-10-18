@@ -4,20 +4,44 @@
 >
 > This is engineering and business risk analysis, **not legal advice**. Items marked ⚖️ need counsel sign-off before launch.
 
-## 1. Top 10 (executive view)
+## 1. Top 10 (executive view) — revised 2026-10-18 for the single-workstation, local-inference design
 
 | # | Risk | L | I | Primary mitigation |
 |---|---|---|---|---|
-| 1 | Instagram account restricted or removed (AI content, solicitation policy, automation patterns) | M | H | Business account; `suggestive` ceiling; no adult CTAs; AI labels; no engagement automation beyond official APIs; Telegram as the owned audience; backup handles reserved |
-| 2 | Telegram policy or economics shift (Stars rate, fees, hold, adult/companion crackdowns, bot bans) | M | H | Stay SFW; Stars as accounting unit; diversified products; monitor the changelog and ToS; keep an export of fan consent records so the audience can be migrated |
-| 3 | Companion-chatbot law non-compliance (CA SB 243, NY Art. 47, WA/OR from 2027, EU Art. 50) ⚖️ | M | H | Disclosure engine (start + every 3h), crisis protocol + published page, de-identified referral log, jurisdiction-aware config, counsel review |
-| 4 | Harm to vulnerable users (emotional dependence, distress, overspending) | M | H | Crisis detection and escalation; ethical-monetization rules; spend caps; no manipulative tactics; QA sampling; incident process |
-| 5 | Minors interacting with the bot | M | H | 18+ service; age attestation at `/start`; minor-signal classifier → restricted mode + human review; no romantic framing; no mature content |
-| 6 | Unit economics fail (LLM and media cost per fan above Stars revenue) | M | H | Per-message cost metering; free-allowance caps; model/effort per route set from evals; caching; budgets with hard stops; pricing experiments |
-| 7 | Character inconsistency / drift (vendor model updates, LoRA drift) | H | M | Versioned reference set; automated face + attribute checks; pinned model versions; calibration set re-run on vendor changes |
-| 8 | Synthetic persona resembles a real person (likeness/NCII claims) ⚖️ | L | H | Celebrity/real-person resemblance check at design time and on every asset; takedown intake with a 48h SLA; persona design documented |
-| 9 | Duplicate or missing actions on external platforms (double posts, double grants, missed revocations) | M | M | Idempotency ledger, ambiguous-outcome reconciliation, unique constraints, daily reconciliation jobs |
-| 10 | Prompt injection / jailbreak makes the persona say prohibited things | H | M | Fan text treated as untrusted data; no side-effecting tools in the conversation path; output guard; red-team eval suite in CI |
+| 1 | **Single workstation is a single point of failure** (hardware fault, theft, power/internet loss, Windows update or driver regression) | M | H | Payments never depend on the GPU. Telegram's 24 h update retention + `getStarTransactions` reconciliation. Tested restore (B-FAIL-7). Controlled update windows. Optional warm standby (D10). See §1a. |
+| 2 | **GPU capacity insufficient for 30 personas' content plans** on a power-limited laptop GPU | H | H | Measured `N_max` per tier (doc 13 §7). Content tiers. Gated rollout 1→5→10→20–30. Second inference node as the scale-out path. **The plan accepts "measured maximum < 30" as a valid outcome.** |
+| 3 | **Local model quality below the commercial bar** (photorealism, identity consistency, chat persona quality) | M | H | Licence-clean bake-off with blind human panels (Q-IMG-1, Q-ID-1, Q-CHAT-1). Persona LoRAs. Human approval of all content. Quality outranks throughput. |
+| 4 | **Licence traps** in local models and ComfyUI add-ons (non-commercial weights despite "commercial outputs" wording, territory exclusions, revenue caps, AGPL tools, upstream licence changes) | H | H | `inference.licenses` + DB trigger blocks approval; counsel review (doc 15 §6); excluded list; monthly licence-hash checks |
+| 5 | Instagram enforcement, now across **30 accounts run by one operator** (AI content, solicitation policy, coordinated-network patterns) | M | H | Business accounts, AI labels, `suggestive` ceiling, no adult CTAs, **no cross-persona engagement automation**, Business Verification, staggered onboarding |
+| 6 | Companion-chatbot law non-compliance (CA SB 243, NY Art. 47, WA/OR 2027, EU Art. 50) ⚖️ | M | H | Unchanged: disclosure engine, crisis protocol, referral log, counsel review |
+| 7 | **No vendor safety layer**: local models will generate what they're asked | H | H | Prompt-layer bans; strict local validators (doc 07 W2); guard model; human approval; only approved models loadable; Q-CHAT-1 critical cases 100% |
+| 8 | Harm to vulnerable users / minors interacting | M | H | Unchanged: crisis and minors protocols, 18+ service, ethical monetization, QA |
+| 9 | **Chat degraded by GPU contention** (media jobs, mode switches, engine crashes) | M | H | Resident chat lane, admission control, paid-first priority, load shedding, holding messages, interference factor measured (B-LLM-5) |
+| 10 | Operator/reviewer workload grows with persona count (L2 chat drafts, content approvals) | H | M | Autonomy promotion is a rollout gate (doc 06 §5.1); review time measured; staffing plan per stage |
+
+## 1a. Risks introduced or changed by the single-workstation local-inference design
+
+| ID | Risk | L | I | Mitigation | Residual |
+|---|---|---|---|---|---|
+| W1 | Hardware failure or theft of the workstation | L | H | Encrypted offsite backups; rebuild runbook (target ≤ 24 h on replacement hardware); BitLocker; physical security; optional warm standby | M |
+| W2 | Power loss / internet loss | M | M | Laptop battery bridges short power cuts; router on UPS; optional 4G/5G failover; outbound-only design reconnects automatically; Telegram retains updates 24 h | L |
+| W3 | Sustained-load thermal throttling and component wear (fans, battery swelling at 100% charge, VRM) from 24/7 GPU duty | H | M | Capacity from **sustained** benchmarks; thermal governor (duty-cycling media); ~80% battery charge cap; cooling stand; quarterly thermal re-test; hardware reserve in the budget | M |
+| W4 | VRAM budget errors → OOM in the chat engine | M | H | Measured budgets only (DB-enforced); fail-loud sysmem policy; OOM ladder for media; chat OOM = incident + safer KV budget | L |
+| W5 | Windows Update / NVIDIA driver / WSL updates break CUDA, ComfyUI or the engine | M | H | Update deferrals; monthly planned window; re-benchmark trigger; previous driver and WSL distro snapshot kept for rollback | L |
+| W6 | Software immaturity on Blackwell laptop + WSL2 (engine kernels, attention libraries, custom nodes) | M | M | Stage-0 bake-off of two engines; pin versions; native-Windows ComfyUI fallback; avoid exotic kernels unless benchmarked | M |
+| W7 | ComfyUI custom nodes / model files as a supply-chain attack vector (arbitrary code, pickles) | M | H | Pinned, reviewed custom nodes; ComfyUI Manager disabled in production; safetensors-only models with SHA-256 pins; engines run as unprivileged users bound to localhost | L |
+| W8 | Storage exhaustion (media library, candidates, model versions, WAL) | M | M | Retention of rejected candidates (30 days); disk alerts at 85%; storage growth tracked per persona; second disk for backups | L |
+| W9 | Data protection on a physical machine (local access, backups) | L | H | BitLocker, per-user services, localhost-only engines, client-side encrypted backups, access logging | L |
+| W10 | Upstream model abandonment or licence change after adoption | M | M | Pinned weights archived locally; licence text archived with its hash at approval time; alternatives kept benchmarked | L |
+| P14 | Meta treats the 30-account portfolio as a coordinated network → enforcement cascades | M | H | Transparent operator identity, AI labels, Business Verification, no cross-account engagement, staggered account onboarding, distinct content per persona | M |
+| P15 | Telegram flags mass account/bot creation; phone-number sourcing for Business accounts | M | M | Two owner accounts for bots; Business accounts only for selected personas, with genuine company numbers; staggered creation | L |
+| C1 | Capacity misjudged from non-representative benchmarks (desktop figures, burst runs, idle chat) | M | H | Doc 14 rules: production machine only, sustained runs, interference tests, environment fingerprints; gates require fresh runs | L |
+
+**Changed rows below (2026-10-18):**
+
+- **T1** (vendor discontinuation) now applies to *upstream open models*; see W10.
+- **B2** (LLM cost per chatter) is now a **GPU-capacity** risk, not a cash risk; see Top-10 #2/#9.
+- **R11** (AI vendor usage policies) is replaced by model **licence** risk (Top-10 #4) and the absence of vendor safety layers (Top-10 #7).
 
 ## 2. Platform risks
 
@@ -25,7 +49,7 @@
 |---|---|---|---|---|---|
 | P1 | IG removes or demotes AI content; "AI-generated profile" label missing → excluded from recommendations | M | H | Turn on the profile label at launch; `is_ai_generated` on posts (if confirmed); C2PA; disclosure in captions and bio | M |
 | P2 | IG adult-solicitation policy triggered by funnel CTAs | M | H | Link-policy check on captions, bios, stories and DMs; Telegram assets linked from IG are SFW only; reviewer checklist | L |
-| P3 | Meta App Review / Business Verification delays (needed for webhooks from non-role users, or for SaaS) | M | M | Phase 0 test; start Business Verification in week 1; MVP launch does not depend on IG DMs | L |
+| P3 | Meta App Review / Business Verification delays (needed for webhooks from non-role users, or for SaaS) | M | M | Stage 0 test; start Business Verification in week 1; MVP launch does not depend on IG DMs | L |
 | P4 | Graph API version deprecations (roughly 2-year lifecycle) and metric changes (e.g. `impressions` → `views`) | H | L | Pinned version per adapter; contract tests; upgrade calendar | L |
 | P5 | IG publishing limits (100/24h, 400 containers) or API outages | L | M | Quota check before publish; retries; manual fallback runbook | L |
 | P6 | IG token expiry (60 days, unrecoverable if missed) | M | M | Refresh every ~30 days; alert at T−10 days; re-auth runbook | L |
@@ -35,7 +59,7 @@
 | P10 | Native channel subscription behavior is opaque (no payment events, unclear auto-removal) | — | — | Avoided by design: bot-managed subscriptions + join-request gating | L |
 | P11 | Telegram AI-data consent rule violated (AI processing without explicit per-chat consent) | M | H | Hard consent gate in the conversation pipeline; tests; `/stopai` withdrawal | L |
 | P12 | Business-bot ToS: concealing automation or sharing data with third-party APIs without authorization | M | H | Human-operated account; AI drafts only after the counterpart consents; disclosure in bio and first message | L |
-| P13 | Platform concentration: all revenue on Telegram | H | H | Accept for the MVP; Phase 5 diversification (web checkout, other platforms) | H (accepted) |
+| P13 | Platform concentration: all revenue on Telegram | H | H | Accept for the MVP; Stage 5 diversification (web checkout, other platforms) | H (accepted) |
 
 ## 3. Regulatory and legal risks ⚖️
 
@@ -51,7 +75,7 @@
 | R8 | TAKE IT DOWN Act / likeness and IP claims (brand logos, copyrighted characters, real-person resemblance) | L | H | Resemblance and brand/text checks in validation; takedown intake (48h); legal review of persona origin | L |
 | R9 | Tax/accounting for Stars → TON → fiat (revenue recognition, FX, VAT on digital services, DAC8/KYC) | H | M | Engage an accountant before the first withdrawal; payout ledger with tx refs and rates | M |
 | R10 | Consumer protection: refunds for non-reclaimable digital services; Telegram discourages real-time sale of such services | M | M | Clear pricing; refund policy (unused credits refundable); prompt `/paysupport`; credits instead of per-message charges | L |
-| R11 | AI vendor usage policies: Anthropic prohibits erotic chat and sexual content and requires AI disclosure; media vendors prohibit explicit output (Runway: even lingerie) | M | H | Provider-eligibility table; rating ceiling; output guard; refusal handling; quarterly policy review | L |
+| R11 | ~~AI vendor usage policies~~ (superseded 2026-10-18: no AI vendors). Replaced by model **licence** risk (Top-10 #4) and the absence of vendor safety layers (Top-10 #7). | — | — | See §1 and §1a | — |
 
 ## 4. Safety and ethics risks
 

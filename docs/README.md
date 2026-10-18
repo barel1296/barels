@@ -1,91 +1,134 @@
-# AI Influencer Operating System: Phase 1 Architecture & Plan
+# AI Influencer Operating System: Architecture & Implementation Plan
 
-> Status: **Proposed for approval. No application code yet.** · Date: 2026-10-14 · Author: CTO / Principal Architect
+> Status: **Proposed for approval. No application code yet.** · Revision: **2026-10-18 — MVP scope update: 20–30 personas on one Windows workstation (RTX 5090 Laptop, 24 GB), all AI inference local, ComfyUI as media engine** · Previous revision: 2026-10-14 (cloud design)
 
 ## Executive summary
 
-We will build a **modular monolith**:
+The platform is a **modular monolith plus one shared Inference Host** on a single Windows 11 Pro workstation.
 
-- **Core stack:** TypeScript on Node 24, PostgreSQL as the system of record, BullMQ on Redis/Valkey for jobs, and Cloudflare R2 for media.
-- **Hosting:** Render, with fully separate staging and production.
-- **Modules:** ten bounded modules (Identity, Content, Publishing, Conversation, Monetization, CRM, Analytics, Agents, Approvals, plus Platform core). Each owns its own Postgres schema.
-- **Integration:** modules talk through in-process interfaces and a transactional outbox.
-- **External calls:** every one goes through a Provider Gateway, which applies idempotency, rate limits, retries, circuit breaking and cost metering.
-- **Agents:** they **propose** structured actions. A deterministic executor carries them out only after a **Policy Engine** resolves the autonomy level, and through approval when required. Moving an action from Level 0 to Level 4 is a configuration change backed by QA evidence, not a rewrite.
+**Runtime and storage:**
 
-The research changed the plan in five important ways:
+- All services run in WSL2 under systemd: Postgres 16 (records **and** persistent job queues), the TypeScript domain application, a Python Inference Host, a local OpenAI-compatible LLM engine, and ComfyUI.
+- Media lives on local disk, with encrypted offsite backups.
 
-1. **The MVP must be SFW** (rating ceiling `suggestive`). Explicit or adult content is blocked on every layer of the realistic stack:
-   - Instagram removes AI nudity and bans links to paid adult content.
-   - Telegram Stars run on App Store/Play rules, and Telegram removes porn bots.
-   - Every researched image and video vendor prohibits explicit output.
-   - Anthropic's usage policy prohibits erotic chat.
-   - UK and US law would require highly effective age assurance.
+**Connectivity, with no inbound ports:**
 
-   The data model supports rating-gated content and age gates, but an adult tier is a separate product decision, not a toggle.
-2. **Sell premium access as a bot Star subscription and gate the premium channel with bot-approved join requests.** Telegram's native channel-subscription links give the bot no payment or renewal events, and Bot API 10.2 `subscription` updates make the bot route reliable. PPV is sold in bot DMs, the only place paid-media purchases are reported to the bot.
-3. **AI processing of Telegram messages requires explicit, per-chat consent** under Telegram's terms. This is a hard gate in the conversation pipeline.
-4. **The persona bot is a "companion chatbot"** under California SB 243 and New York's AI-companion law. That means AI disclosure at the start and every 3 hours, a published crisis protocol, and a de-identified referral log. It is also why we need a **minimal static legal and safety page**, despite "no public website".
-5. **Conversation model choice dominates unit economics.** At scale, chat costs ≈ $37k/month on Opus 5.5, ≈ $19.5k on Sonnet 5.5, and ≈ $1k on Haiku 5.5. We will decide per route from evals in Phase 2.
+- Telegram via long polling.
+- Meta webhooks and signed media URLs via a free Cloudflare Tunnel.
+- Staff access through Cloudflare Access + SSO.
 
-**MVP:** about 15 weeks to public launch for one influencer, across 4 phases, with a 2–3 week closed beta in which chat runs as **AI drafts approved by operators**.
+**No paid AI APIs, no managed GPUs, no Kubernetes.**
 
-**Running cost:** ≈ $620–1,340/month for infrastructure and AI at MVP volume, excluding people. See doc 12.
+**What makes 30 personas work on one GPU:**
+
+1. **Personas share inference.** One resident chat model serves every persona through persona prompts. One ComfyUI instance renders for every persona by swapping **per-persona LoRAs**. A persona is configuration (`identity.persona_runtime_config`), not infrastructure.
+2. **A GPU Arbiter owns the 24 GB.** It keeps a resident chat lane, gives paid fans' chats priority, runs media in a measured VRAM budget, schedules media fairly across personas with model-affinity campaigns, and handles thermal throttling and OOMs. Payments never touch the GPU (doc 13).
+3. **Capacity is measured, not assumed.** Configured personas and concurrent chatters are separate limits (`N_max` vs. `A_max`). Both are computed from benchmarks run on *this* machine (doc 14). No performance number in these docs is invented; every sizing value is a parameter until measured.
+4. **The licence comes first in model choice** (doc 15):
+   - **Images:** Z-Image Turbo with persona LoRAs; edits with Qwen-Image-Edit-2511.
+   - **Video:** Wan 2.2 image-to-video.
+   - **Chat and image judging:** Qwen3.5-9B. **Safety:** Qwen3Guard. **Embeddings:** Qwen3-Embedding.
+   - **Engine:** llama.cpp or vLLM.
+   - All are Apache/MIT, and are **candidates in a Stage-0 bake-off** judged by blind quality panels.
+   - Popular alternatives are excluded as non-commercial or territory-restricted: FLUX dev models, InsightFace-based face adapters, Hunyuan, SUPIR, CodeFormer and others.
+5. **Rollout is gated.** One complete persona end-to-end first, then 5 → 10 → 20–30 in batches of five. Each step happens only after measured acceptance gates pass. **If the workstation's measured limit is below 30, the plan stops there** and offers lower content tiers or a second inference node, never lower quality or safety bars.
+
+**Everything required before is preserved:**
+
+- consent gate;
+- AI disclosure cadence;
+- crisis protocol;
+- SFW policy;
+- payment integrity;
+- entitlements;
+- audit;
+- RBAC;
+- tenant isolation.
+
+**Local inference relaxes none of them.** It removes vendor safety layers, so our guards and validators get stricter.
+
+**Costs:**
+
+- **No per-call AI fees.** Recurring cash costs are electricity (metered), connectivity, offsite backup storage (e.g. B2 at $6.95/TB-month), phone numbers, a domain and hardware amortization.
+- All are recorded monthly with evidence (doc 12).
+- **The binding constraints are now GPU capacity, single-host availability, and human review time.**
+
+## What changed in this revision (2026-10-18)
+
+| Area | 2026-10-14 (cloud) | 2026-10-18 (this revision) |
+|---|---|---|
+| Hosting | Render PaaS, managed Postgres, Redis, R2 | One Windows workstation; WSL2 + systemd; Postgres also as queue; local content store |
+| AI | Claude API, cloud image/video vendors, cloud moderation | **All local:** LLM engine, ComfyUI, local guard, classifiers, face scoring, C2PA signing |
+| Ingress | Webhooks to a cloud API | Telegram long polling; Cloudflare Tunnel for Meta and media URLs |
+| Scale target | 1 influencer MVP | 1 → 5 → 10 → 20–30 personas, measured gates |
+| New docs | — | [13 GPU scheduling & capacity](13-gpu-scheduling-and-capacity.md), [14 benchmark protocol](14-benchmark-protocol.md), [15 local model stack & licensing](15-local-model-stack.md) |
+| Schema | 10 tenant schemas | + `inference` (licence-gated model registry, workflows, GPU nodes/modes/jobs) and `ops` (benchmarks, capacity, energy, cost ledger); 14 DB invariant tests |
+| Unchanged | Module boundaries, command bus, policy engine, consent and disclosure, SFW decision, Stars monetization and entitlements, approvals, audit, RBAC, multi-tenancy | — |
 
 ## Document map
 
-| # | Document | Covers task item |
+| # | Document | Covers |
 |---|---|---|
-| 01 | [Requirements analysis](01-requirements-analysis.md) | 1. Analyze requirements |
-| 02 | [Platform capabilities: verified vs. assumed](02-platform-capabilities.md) | 2. Integration constraints and API capabilities |
-| 03 | [Risk register](03-risk-register.md) | 3. Technical and business risks |
-| 04 | [System architecture](04-system-architecture.md) | 4. System architecture |
-| 05 | [Data model](05-data-model.md) + [reference DDL](schema/schema.sql) | 5. Database schema |
-| 06 | [Agent system](06-agent-system.md) | 6. Agent system |
-| 07 | [Content production pipeline](07-content-pipeline.md) | 7. Content pipeline |
-| 08 | [Telegram monetization & entitlements](08-telegram-monetization.md) | 8. Monetization workflows |
-| 09 | [Operations & security](09-operations-security.md) | 9. Operational and security requirements |
-| 10 | [Implementation plan](10-implementation-plan.md) | 10. Phased plan |
-| 11 | [MVP acceptance criteria](11-mvp-acceptance-criteria.md) | 11. Acceptance criteria |
-| 12 | [Cost model](12-cost-model.md) | 12. Infrastructure and AI costs |
+| 01 | [Requirements analysis](01-requirements-analysis.md) | Scope update, goals in priority order, NFRs, tensions |
+| 02 | [Platform capabilities: verified vs. assumed](02-platform-capabilities.md) | Instagram, Telegram, 30-persona account limits, legal; cloud vendors (superseded) |
+| 03 | [Risk register](03-risk-register.md) | Revised top 10 + single-workstation risks |
+| 04 | [System architecture](04-system-architecture.md) | Deployment topology, processes, modules, ingress, environments, scale-out |
+| 05 | [Data model](05-data-model.md) + [DDL](schema/schema.sql) + [invariant tests](schema/invariants_test.sql) | Schemas, state machines, invariants, retention, erasure |
+| 06 | [Agent system](06-agent-system.md) | Agents on local models, autonomy levels, autonomy as a scaling gate |
+| 07 | [Content pipeline](07-content-pipeline.md) | ComfyUI workflows, persona LoRAs, local validation, provenance |
+| 08 | [Telegram monetization & entitlements](08-telegram-monetization.md) | Stars flows for 30 bots, outage-safe payment integrity |
+| 09 | [Operations & security](09-operations-security.md) | Local secrets, observability, backups/DR, Windows host hardening |
+| 10 | [Implementation plan](10-implementation-plan.md) | Stages 0–5 and the 1 → 5 → 10 → 20–30 rollout |
+| 11 | [Acceptance criteria & stage gates](11-mvp-acceptance-criteria.md) | Gate tests G0, G1, G2, G3, G4.n |
+| 12 | [Operating cost model](12-cost-model.md) | Measured monthly cost ledger, unit costs, attribution |
+| 13 | [GPU scheduling, capacity & admission control](13-gpu-scheduling-and-capacity.md) | VRAM model, modes, arbiter, fair share, capacity formulas, limits |
+| 14 | [Benchmark protocol](14-benchmark-protocol.md) | Hardware/model benchmarks, quality evals, drills, recording rules |
+| 15 | [Local model stack & licensing](15-local-model-stack.md) | Candidates, exclusions, licence workflow, hardware requirements |
 
 ## Key architecture decisions
 
 | # | Decision | Main alternative | Why |
 |---|---|---|---|
-| AD1 | Modular monolith, one schema per module, outbox events | Microservices | Small team, I/O-bound workloads; extraction path preserved |
-| AD2 | TypeScript end-to-end | Python | One language for API, workers, bot and dashboard; shared Zod schemas for API contracts and agent outputs |
-| AD3 | Postgres state machines + BullMQ jobs | Temporal/DBOS durable workflows | Short workflows; fewer moving parts. Revisit for long-running agent workflows. |
-| AD4 | Shared DB/schema multi-tenancy + RLS | DB per tenant | Scales to hundreds of workspaces; silo option kept |
-| AD5 | Agents only propose; the executor acts after policy and approval | Agents with direct tools | Bounded autonomy, one audited execution path for humans and agents |
-| AD6 | Autonomy = per-action policy rows promoted by QA evidence | Hard-coded modes | L0→L4 without code changes; automatic demotion |
-| AD7 | Bot Star subscription + join-request-gated premium channel | Native channel subscription links | Payment visibility, unified entitlements, reconciliation |
-| AD8 | Single entitlement engine as the source of truth | Per-feature flags | Bundles, refunds, erasure and audits all consistent |
-| AD9 | Stars as the accounting unit; fiat only as a labelled estimate or realized payout | Fixed USD conversion | Stars have no fixed value |
-| AD10 | Provider ports + data-driven router with per-provider max rating | Hard-wired vendors | Vendors are discontinued (e.g. Sora API) and policies differ |
-| AD11 | Approvals bound to content and payload hashes, enforced by DB constraints | Status flags only | What was approved is exactly what ships |
-| AD12 | Telegram Business + connected bot for the personal account; **no userbots** | MTProto automation | Telegram ToS; permitted method; Premium no longer required |
-| AD13 | Render PaaS + R2 + Doppler + KMS | AWS ECS/RDS | Least ops for the MVP; Docker keeps AWS as an exit path |
+| AD1 | Modular monolith + one Inference Host on one machine | Microservices / per-persona stacks | Minimal ops; personas are configuration; failure domains still isolated by process |
+| AD2 | TypeScript domain app + Python Inference Host | All-Python / all-TypeScript | Domain design and Telegram stack unchanged; ML ecosystem is Python |
+| AD3 | Postgres-backed persistent queues (incl. `inference.gpu_jobs`) | Redis/BullMQ | Persistence by design, transactional enqueue, one less stateful service |
+| AD4 | Shared DB/schema multi-tenancy + RLS | DB per tenant | Unchanged |
+| AD5 | Agents propose; executor acts after policy and approval | Agents with direct tools | Unchanged |
+| AD6 | Autonomy = per-action policy rows promoted by evidence, **and a rollout gate** | Hard-coded modes | L2 chat drafts don't scale to 30 personas |
+| AD7 | Bot Star subscription + join-request-gated premium channel | Native channel subscription links | Unchanged (payment visibility) |
+| AD8 | Single entitlement engine | Per-feature flags | Unchanged |
+| AD9 | Stars as accounting unit; fiat only estimated or realized | Fixed USD rate | Unchanged |
+| AD10 | **GPU Arbiter** with measured VRAM budgets, resident chat lane, fair share, campaigns | FIFO GPU queue | Chat reliability and fairness across 30 personas on one GPU |
+| AD11 | **Licence-gated model registry** (DB trigger) | Ad-hoc model downloads | Commercial use is the first quality requirement |
+| AD12 | **Consistency via persona LoRAs + reference editing** on Apache/MIT bases | InsightFace-based face adapters | Those depend on non-commercial weights |
+| AD13 | Telegram long polling + Cloudflare Tunnel (free) | Inbound webhooks / port forwarding | No inbound ports; Telegram's 24 h retention covers short outages |
+| AD14 | Measured capacity with explicit stop rule | Promise 30 up front | Honest scaling; scale-out path designed in (second node) |
+| AD15 | Telegram Business only for selected personas | All 30 | Phone-number sourcing and human operation cost |
 
 ## Decisions needed from you
 
 | # | Decision | My recommendation |
 |---|---|---|
-| **D1** | Confirm the **SFW-only MVP** (`suggestive` ceiling on every channel) and treat any adult tier as a separate future product decision | **Yes.** It isn't viable on the current platforms and vendors, and it carries the highest legal risk. |
-| **D2** | Approve a **minimal static legal and safety page** as an exception to "no public website" | **Yes.** It is required: Meta app privacy and data-deletion URLs, and the SB 243 published protocol. |
-| **D3** | Conversation model per route (Opus 5.5 default vs. Sonnet 5.5 / Haiku 5.5) | Decide in Phase 2 from the eval suite plus cost per completed conversation. Safety cases must stay at 100%. |
-| **D4** | Hosting: Render (PaaS) vs. AWS | **Render** for the MVP. |
-| **D5** | Data residency | **EU** (Frankfurt) for the DB and storage. |
-| **D6** | Closed beta with **L2 chat drafts**, which needs operator coverage (hours/day) | Yes. Staff 2 part-time operators during the beta. |
-| **D7** | Launch audience | 18+ (self-attested), English first, EU/UK/US, with jurisdiction-aware disclosure config |
-| **D8** | Budget envelope for MVP run-rate | ≈ $1–1.5k/month for infrastructure and AI, plus people, counsel and accountant |
+| **D1** | Keep the **SFW-only** product (`suggestive` ceiling). Local models don't change the platform, legal or age-assurance reasons. | **Yes** |
+| **D2** | Minimal static legal and safety page (Cloudflare Pages, free) as an exception to "no public website" | **Yes** (required: Meta app URLs, SB 243 published protocol) |
+| **D3** | Confirm the **hardware baseline**: ≥ 64 GB RAM (96–128 GB if the chassis allows), ≥ 2 TB NVMe, ≥ 4 TB backup disk, router UPS, smart plugs | **Yes.** Video feasibility depends on RAM. |
+| **D4** | Accept a **single point of failure** for the MVP (target RTO ≤ 24 h on replacement hardware; payments outage-safe) | **Yes for Stages 0–2.** Revisit at D10. |
+| **D5** | Accept **"measured maximum < 30 personas"** as a valid outcome, with tiers and scale-out as the response | **Yes.** No benchmark exists yet for this laptop GPU under this mix. |
+| **D6** | Content **tiers** per persona (Lite / Standard / Plus) instead of one content plan for all 30 | **Yes** |
+| **D7** | **Meta Business Verification** and **two BotFather owner accounts** in Stage 0 | **Yes** |
+| **D8** | Telegram Business account **only for selected personas** | **Yes** |
+| **D9** | Closed beta with operator-approved chat drafts, then **L3 for low-risk chat intents as the gate to 10+ personas** | **Yes** |
+| **D10** | Revenue threshold at which to add a **warm standby** or **second inference node** | Set when monthly revenue exceeds the cost of one day of downtime |
+| **D11** | Budget for **counsel review of model licences** (doc 15 §6) before G0 | **Yes.** Licences are now a top risk. |
+| **D12** | Launch audience | 18+ (self-attested), English first, EU/UK/US, jurisdiction-aware disclosure |
 
 ## Evidence quality: please read
 
-This environment's network policy blocked direct access to Meta, Telegram and most vendor sites. Research used:
+This environment's network policy blocked most vendor and platform sites. Research used:
 
-- same-day **verbatim snapshots** of the Telegram docs, which give high confidence;
-- **official-domain search excerpts** for Meta and the vendors, medium confidence;
-- direct reads of Anthropic's usage policy and some Google pages.
+- verbatim primary text where available: LICENSE and README files on GitHub, mirrored Telegram Bot API text, the ComfyUI source;
+- official-domain search excerpts elsewhere.
 
-Every claim in [doc 02](02-platform-capabilities.md) carries an evidence tag (V / E / R / A). **Phase 0 begins with a 12-item verification checklist** against the live primary docs, before any dependent code is written. Nothing in this plan relies on an unverified capability without a fallback.
+Every claim carries an evidence tag (V / E / R / A) in docs 02 and 15.
+
+**No benchmark figures were taken from the internet.** Docs 13 and 14 define what to measure on the production workstation, and the gates in doc 11 refuse unmeasured values.

@@ -1,6 +1,6 @@
 # 08 — Telegram Monetization & Entitlements
 
-> Status: Proposed · Evidence base: [02-platform-capabilities](02-platform-capabilities.md) §2 (mostly **V**, verbatim Bot API 10.3 text)
+> Status: Proposed — **revised 2026-10-18: 30 personas (30 bots) on one workstation; ingestion by long polling; payments never depend on the GPU** · Evidence base: [02-platform-capabilities](02-platform-capabilities.md) §2 (mostly **V**, verbatim Bot API 10.3 text)
 
 ## 1. Key decisions
 
@@ -54,7 +54,7 @@ Enforcement adapters subscribe to entitlement events, so access changes propagat
 The premium channel's **only** invite link is a join-request link (`creates_join_request=true`). Every `chat_join_request` is checked against `hasAccess(fan, 'premium_channel_access', channel)`:
 
 - **entitled** → `approveChatJoinRequest`;
-- **not entitled** → `declineChatJoinRequest`, followed by a DM to the fan with the VIP offer. Messaging a fan who sent a join request is a documented Bot API behavior (`user_chat_id`, short window), but it must be **verified in Phase 0**.
+- **not entitled** → `declineChatJoinRequest`, followed by a DM to the fan with the VIP offer. Messaging a fan who sent a join request is a documented Bot API behavior (`user_chat_id`, short window), but it must be **verified in Stage 0**.
 
 ## 4. Flows
 
@@ -64,7 +64,7 @@ The premium channel's **only** invite link is a join-request link (`creates_join
 sequenceDiagram
   autonumber
   participant F as Fan
-  participant B as Bot (api + worker)
+  participant B as Bot (tg-ingest + worker)
   participant DB as Postgres
   F->>B: /start campaign_token
   B->>DB: upsert fan + telegram identity, attribute campaign (source: IG, free channel, …)
@@ -91,8 +91,8 @@ sequenceDiagram
   autonumber
   participant F as Fan
   participant B as Bot
-  participant API as api (fast path)
-  participant W as worker-realtime
+  participant API as tg-ingest (long poll + fast path)
+  participant W as worker-rt
   participant DB as Postgres
   participant TG as Telegram
   F->>B: /vip (or accepts an offer)
@@ -100,16 +100,17 @@ sequenceDiagram
   B->>TG: createInvoiceLink(XTR, prices=[price], subscription_period=2592000, payload)
   B->>F: "VIP — 30 days, auto-renews monthly, cancel anytime in Telegram" [Subscribe for N ⭐]
   F->>TG: pays
-  TG->>API: pre_checkout_query (payload)
+  API->>TG: getUpdates (long poll, per bot)
+  TG-->>API: pre_checkout_query (payload)
   API->>DB: single indexed read: order valid? product active? price matches? fan eligible? no live sub for this product?
   API->>TG: answerPreCheckoutQuery(ok or error_message), p99 < 2 s, hard limit 10 s
-  TG->>API: message.successful_payment (charge id, is_first_recurring, subscription_expiration_date)
-  API->>DB: persist inbound (dedup) → 200
+  TG-->>API: message.successful_payment (charge id, is_first_recurring, subscription_expiration_date)
+  API->>DB: persist update (dedup by update_id), then advance offset
   API->>W: enqueue payments job
   W->>DB: TX: payments(+charge id UNIQUE) · orders=paid · subscriptions=active(period_end=expiration) · entitlements(premium_channel_access, bot_premium_tier) · audit · outbox
   W->>F: "Welcome to VIP ✨" + join-request link
   F->>TG: request to join premium channel
-  TG->>API: chat_join_request
+  TG-->>API: chat_join_request
   API->>W: enqueue
   W->>DB: hasAccess? yes
   W->>TG: approveChatJoinRequest
@@ -130,7 +131,7 @@ sequenceDiagram
 | `subscription` update, `state="failed"` | `payment_failed`; grace window = 48h | Notify the fan once with neutral wording |
 | Period end + 1h skew with no renewal payment (cancelled), or grace elapsed (failed) | `expired` | Revoke entitlements → `PremiumChannelEnforcer` removes the fan from the channel |
 
-**Phase 0 test item:** confirm whether renewals send a `pre_checkout_query`. The fast path accepts renewal pre-checkouts for live subscriptions either way.
+**Stage 0 test item:** confirm whether renewals send a `pre_checkout_query`. The fast path accepts renewal pre-checkouts for live subscriptions either way.
 
 ### 4.4 Expiry sweeper and membership audit
 
@@ -160,7 +161,7 @@ sequenceDiagram
 ### 4.6 Message credits (paid AI interactions)
 
 1. Each AI reply that goes out (not drafts or failures) calls `consumeCredits(fan, influencer, 1, 'consume:' + message_id)` **unless** it is inside the day's free or premium allowance.
-2. Allowance counters live in Redis (a daily key per fan). They are reconstructible from `conversation.messages` if Redis is lost.
+2. Allowance usage lives in `monetization.daily_allowances`: one row per fan, persona and day, consumed atomically with `UPDATE … WHERE used < daily_limit`. It is persistent, auditable, and survives restarts. Daily limits come from `persona_runtime_config` and may be lowered intra-day by load shedding (doc 13 §6.4). Already-consumed replies are never clawed back.
 3. When the allowance and credits are both exhausted, the persona sends **one** neutral message showing the options:
    - wait until tomorrow;
    - buy a credit pack (invoice link);
@@ -195,6 +196,26 @@ sequenceDiagram
    - `payments` without a transaction after 24h.
 4. Snapshot `getMyStarBalance` for finance.
 5. KPI rollups for the day run **after** reconciliation, so revenue numbers match Telegram's ledger.
+
+### 4.8a Payment integrity on a single host (outage recovery)
+
+Payments never touch the GPU. The single workstation can still be offline, so recovery is designed in:
+
+| Outage length | What happens | Recovery |
+|---|---|---|
+| Inference engines down, host up | Payments, entitlements and membership work normally; chat sends holding messages | None needed for money paths |
+| Host/internet down < 24 h | `pre_checkout_query` gets no answer, so Telegram fails the checkout and **the fan isn't charged**. Updates (incl. `successful_payment` for checkouts approved just before the outage) stay queued at Telegram for ≤ 24 h. | On restart, `tg-ingest` drains each bot's queue in order; idempotent grants; then **immediate reconciliation** against `getStarTransactions` for all 30 bots |
+| Host down > 24 h | Telegram may drop queued updates | `getStarTransactions` is the authority: any incoming transaction without a `payments` row → auto-repair job creates the payment and grants the entitlement; the fan gets an apology plus the access message. Subscription state is re-derived from transactions and `subscription` updates. |
+| Expiry sweeps missed during the outage | Expired fans stay in the premium channel longer than intended | Sweeper catches up on restart (idempotent); the membership audit runs immediately |
+
+Drills B-FAIL-4/5/6 (doc 14) prove these paths before each rollout gate. **The acceptance bar is zero payment discrepancies after reconciliation.**
+
+### 4.8b Thirty bots
+
+- One bot per persona means separate Stars balances, transaction ledgers and payouts **per bot**.
+- Reconciliation iterates all bots (cursor per bot in `core.poll_cursors`).
+- Finance records payouts per bot owner account. ~20 bots per BotFather owner (reported), so there are two company-controlled owner accounts (doc 04 §9).
+- Private-chat topics must stay disabled on **every** bot (15% fee rule). The startup assertion checks all 30.
 
 ### 4.9 Optional experiment: native channel subscription link
 

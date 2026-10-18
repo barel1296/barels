@@ -1,6 +1,6 @@
 # 06 — Agent System
 
-> Status: Proposed · Related: [04 architecture](04-system-architecture.md), [07 content pipeline](07-content-pipeline.md), [08 monetization](08-telegram-monetization.md)
+> Status: Proposed — **revised 2026-10-18: all agents run on local models through the Inference Port; no paid AI APIs** · Related: [04 architecture](04-system-architecture.md), [07 content pipeline](07-content-pipeline.md), [08 monetization](08-telegram-monetization.md)
 
 ## 1. Design principles
 
@@ -9,7 +9,7 @@
    - **proposal tools**, which emit typed `ActionProposal`s.
 
    A deterministic **executor** runs each proposal through the same command handlers humans use. It does so only after the **Policy Engine** allows it, directly or through an approval.
-2. **Structured outputs everywhere.** Every agent returns a schema-validated result: Zod schemas compiled to JSON Schema and used with the Claude API's structured outputs and strict tool schemas. Invalid output is a failure, never "best effort".
+2. **Structured outputs everywhere.** Every agent returns a schema-validated result. Zod schemas are compiled to JSON Schema and enforced by the local engine's **schema-constrained decoding** (`response_format: json_schema`; xgrammar in vLLM, grammar in llama.cpp; doc 15). Results are validated again in the runner. Invalid output is a failure, never "best effort".
 3. **Bounded autonomy.** Every proposal resolves to an autonomy level before execution:
 
    `effective = min(agent max level, policy level for the action and influencer, kill switches, risk overrides, budget state)`
@@ -31,7 +31,7 @@ flowchart LR
   T[Trigger<br/>schedule · event · human · manager task] --> Q[agents.tasks<br/>queued]
   Q --> R[Agent Runner<br/>worker-batch / worker-realtime]
   R --> CTX[Context builder<br/>scoped reads, snapshots]
-  R --> LLM[Claude API<br/>structured output + strict tools]
+  R --> LLM["Local LLM engine via Inference Port<br/>schema-constrained decoding"]
   LLM -->|read tool calls| RT[Read tools<br/>tenant + influencer scoped]
   LLM -->|proposal tool calls| PT[Proposal tools<br/>validate schema]
   PT --> AP[agents.action_proposals]
@@ -47,14 +47,14 @@ flowchart LR
 ### Agent Runner responsibilities
 
 - **Tenant and influencer injection.** The runner binds `workspace_id` and `influencer_id` into every tool handler. Tool schemas don't contain these fields, so an agent cannot address another tenant.
-- **Budgets.** Enforced per run (max steps, max tokens, max USD, wall-clock timeout) and per day per agent and influencer, read from `analytics.budgets` and `agent_definitions.budgets`. When a run exceeds its budget it ends with status `budget_exceeded`, and no partial proposals are executed.
-- **Model configuration** is versioned in `agents.agent_definitions`:
-  - **Default model:** `claude-opus-5-5`, with adaptive thinking and an explicit `effort` per agent. Opus 5.5 can't disable thinking, and its default effort is `medium`, so effort is always set explicitly.
-  - **Tool choice:** `tool_choice: auto` with `strict: true` tools. Forced tool choice is not supported on this model, and structured outputs give the final result.
-  - **Refusals:** handle `stop_reason: "refusal"` and enable the server-side refusal fallback. A refusal is logged as a run outcome, never retried blindly.
-  - **Caching:** prompt caching on the static prefix (system prompt, tool definitions, persona card).
-  - **Batch API (−50%)** for non-urgent work: nightly memory extraction, analytics narratives, eval runs.
-- **Cheaper models per route.** Using Sonnet 5.5 or Haiku 5.5 for specific high-volume routes (conversation, classification, guards) is a **business decision backed by evals**, recorded as a new agent-definition version. The cost impact is quantified in [doc 12](12-cost-model.md). The design supports a different model per agent and per route, with no code change.
+- **Budgets.** Enforced per run: max steps, max tokens, wall-clock timeout, and **max GPU-seconds**. Also per day per agent and influencer, from `agent_definitions.budgets` and the persona's GPU quota. When a run exceeds its budget it ends with status `budget_exceeded`, and no partial proposals are executed.
+- **Model configuration** is versioned in `agents.agent_definitions`. `model` is an `inference.models` key, which must be approved and licence-checked.
+  - **Default:** the resident chat model (doc 15 §2.1, e.g. Qwen3.5-9B) for every agent. Agents run as **class A** work (doc 13 §3), using only idle chat-engine concurrency, so they never delay fans.
+  - **Heavy reasoning** (weekly planning, analytics narratives) may use a larger model, e.g. gpt-oss-20b. It is loaded **only in Mode T or idle windows**, never alongside media, and agent tasks that need it are scheduled into those windows.
+  - **Tools:** OpenAI-compatible tool calling with JSON-schema arguments. The final result is always a schema-constrained structured output.
+  - **Prefix reuse:** the static part of each agent prompt (system prompt, tool schemas, persona card) comes first, to maximize engine prefix caching. Its real benefit is measured (B-LLM-4).
+  - **No vendor batch discount exists locally.** "Batch" means scheduling into low-traffic windows (memory extraction, evals, narratives).
+- **Model per route** is an eval-backed decision, recorded as a new agent-definition version. Examples: a smaller model for classification-like agents, a larger one for planning. Its cost is GPU time, quantified by doc 13 §7. No code change is needed.
 - **Prompt-injection posture.**
   - Fan messages, comments and any platform text are inserted as clearly delimited *data*, never as instructions.
   - Agents that read untrusted text (Conversation, Social Media, Community) have **no proposal tools above medium risk**.
@@ -182,6 +182,26 @@ Autonomy changes are made by **editing `agents.autonomy_policies`**. That is its
 
 **Post-promotion QA sampling** (L3/L4): 10% random sample for the first 30 days, then 3%, plus 100% of risk-flagged items.
 
+### 5.1 Autonomy is a scaling prerequisite (30 personas)
+
+**Operator-approved chat drafts (L2) don't scale to 20–30 personas.** The operator workload is roughly drafts per day × median review seconds, both measured in Stage 1. The rollout plan therefore makes autonomy promotion a **gate**, not an aspiration (doc 10):
+
+| Gate | Autonomy requirement |
+|---|---|
+| Stage 1 → 2 (1 → 5 personas) | Chat L2 drafts measured: approval-without-edit rate and review seconds per draft |
+| Stage 2 → 3 (5 → 10) | `reply.send` promoted to **L3 for the low-risk intent classes** (greeting, small talk, persona Q&A, content questions) per §5 criteria; L2 remains for offers and sensitive intents |
+| Stage 3 → 4 (10 → 20–30) | Offers at L3 within caps; benign IG comment replies and spam hiding at L3; projected operator minutes per day fit staffed hours with ≥ 30% margin |
+
+Safety-critical paths stay deterministic or human at every stage:
+
+- crisis templates;
+- escalations;
+- minors restriction;
+- refunds;
+- prices.
+
+Promotion never removes the guard, the output checks or QA sampling.
+
 ## 6. Conversation agent (real-time pipeline)
 
 The conversation path is latency-sensitive and safety-critical, so it is a specialized pipeline. It is not the generic batch runner.
@@ -194,7 +214,7 @@ sequenceDiagram
   participant Q as conversation queue (debounced per chat)
   participant W as worker-realtime
   participant G as Guards
-  participant L as Claude API
+  participant L as Local LLM engine (via Inference Host)
   participant O as Operator console
   TG->>API: update (message)
   API->>API: verify secret, persist inbound, 200 OK
@@ -231,7 +251,9 @@ These are enforced by code, not only by prompt.
 
    Tracked via `conversations.ai_disclosed_at` / `last_disclosure_at`. Intervals are jurisdiction-configurable (e.g. hourly for minors in WA from 2027; minors are not served in our design).
 3. **Never claim to be human.** Never claim to have a body, real-world location, or meet-ups. Never ask for off-platform contact or payment.
-4. **Rating ceiling.** Content is capped at `min(channel ceiling, fan eligibility, provider/LLM policy)`. With the current stack this is warm, friendly and playful: **never erotic** (Anthropic Usage Policy).
+4. **Rating ceiling.** Content is capped at `min(channel ceiling, fan eligibility, model policy)`. With the SFW product decision (D1) this is warm, friendly and playful: **never erotic**.
+   - Moving to local models removes the *vendor's* usage policy but **not** the platform, legal and age-assurance reasons for SFW (doc 03).
+   - Local models also have **no vendor-side safety layer**, so the guard model, the output guard and the eval suite carry the whole burden. That is why Q-CHAT-1 critical cases are 100%.
 5. **Crisis protocol.**
    - Self-harm signals → a localized crisis-resources message (template, not LLM-written) and a critical escalation.
    - AI persona replies pause for that fan until a human clears them.
@@ -249,7 +271,7 @@ An operator can switch a conversation between modes: `ai_auto` → `ai_draft` �
 
 | Pattern | Example | Mechanism |
 |---|---|---|
-| **Scheduled** | Weekly planning (Mon 06:00 influencer TZ), daily KPI analysis, nightly memory extraction (Batch API) | BullMQ job schedulers → `agents.tasks` |
+| **Scheduled** | Weekly planning (staggered across personas, so 30 personas don't all plan at 06:00), daily KPI analysis, nightly memory extraction (class A in low-traffic windows) | Postgres job scheduler → `agents.tasks` → GPU jobs (class A) |
 | **Event-driven** | `ContentItemBriefed` → Production agent; `CommentReceived` → Social Media agent; `KpiAnomalyDetected` → Analytics → Manager | Outbox consumers create tasks with deterministic idempotency keys |
 | **Manager delegation** | Influencer Manager creates `content_strategist:weekly_calendar` and `monetization:winback_review` tasks | `task.create` proposals at L3 (internal only) |
 | **Pipeline step** | Production agent → QA pre-screen → approval request | Deterministic workflow code calls agents as steps |
@@ -261,8 +283,8 @@ There are no unbounded loops. Every task has a `deadline_at`, and each workflow 
 
 | Failure | Detection | Recovery |
 |---|---|---|
-| Model timeout / 5xx / 429 | SDK error types | Retry with backoff (bounded); circuit breaker per model; chat path sends a holding message after 15s |
-| `stop_reason: refusal` | API response | Server-side fallback if configured; otherwise the run ends `refused`. Chat: safe deflection template. Content: item marked `needs_rework` with the reason. |
+| Engine timeout / crash / restart (mode switch) | Inference Port errors, arbiter events | Retry with backoff (bounded); the task waits while the engine restarts; chat path sends a holding message after `hold_after_s` (doc 13 §6.3) |
+| Model declines or produces unsafe output | Output guard / guard model verdict | The run ends `refused`. Chat: safe deflection template. Content: item marked `needs_rework` with the reason. |
 | Invalid structured output | Schema validation | One repair attempt with the validation error; then `invalid_output` → task failed → human notified |
 | Tool error | Tool handler result | Returned to the model as an error result (bounded retries); the agent may choose an alternative or end |
 | Budget exceeded | Runner accounting | Run stops; no proposals executed; alert; task can be retried with an explicit budget override by an admin |
@@ -275,18 +297,18 @@ There are no unbounded loops. Every task has a `deadline_at`, and each workflow 
 ## 9. Agent lifecycle and evaluation
 
 1. **Author:** prompt template plus tools plus output schema, as a new `agent_definitions` version with status `draft`.
-2. **Evaluate (`evaluating`):** offline eval suites per agent, run against the Batch API.
+2. **Evaluate (`evaluating`):** offline eval suites per agent, run as class A/T GPU jobs in low-traffic windows.
 
    | Agent | Example eval cases |
    |---|---|
-   | Conversation | ~300 cases: persona fidelity, disclosure, refusal of erotic content, crisis handling, minors signals, injection attempts, offer etiquette, memory extraction precision |
+   | Conversation | ~300 cases (Q-CHAT-1): persona fidelity *per persona* (30 personas share one model, so persona bleed-over is tested explicitly), disclosure, refusal of erotic content, crisis handling, minors signals, injection attempts, offer etiquette, memory extraction precision, multilingual |
    | Strategist | Plan validity vs. policy and budgets |
    | Social Media | Link-policy compliance, disclosure, sponsored-content handling |
 
    Graded by deterministic checks plus an LLM judge with a rubric, with spot human review. **Critical cases must be 100%.**
 3. **Shadow (`shadow`):** runs on live inputs with `mode='shadow'`. Proposals are recorded but never executed. Agreement is measured against human decisions.
 4. **Activate (`active`):** approved by owner or admin plus compliance. The previous version stays available for instant rollback.
-5. **Monitor:** QA sampling, cost per run, denial rates, escalation rates and refusal rates are on the agent dashboard.
+5. **Monitor:** QA sampling, GPU-seconds per run, denial rates, escalation rates and guard-block rates are on the agent dashboard.
 
 ## 10. Example: weekly cycle for one influencer
 

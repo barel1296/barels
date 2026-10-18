@@ -16,6 +16,9 @@
 --     live in object storage. The row keeps a *_ref pointer to them.
 --   * Status columns are text + CHECK rather than enums, so values can evolve
 --     without a type migration. content_rating is the one ordered enum.
+--   * Deployment: single workstation, all AI inference local (docs/04, docs/13).
+--     Postgres is also the persistent job queue; there is no Redis.
+--     Media lives on local disk under content-addressed paths (storage_key).
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid, digest
@@ -32,6 +35,8 @@ CREATE SCHEMA IF NOT EXISTS monetization;
 CREATE SCHEMA IF NOT EXISTS analytics;
 CREATE SCHEMA IF NOT EXISTS agents;
 CREATE SCHEMA IF NOT EXISTS approvals;
+CREATE SCHEMA IF NOT EXISTS inference;   -- platform-level: model registry, workflows, GPU scheduling
+CREATE SCHEMA IF NOT EXISTS ops;         -- platform-level: benchmarks, capacity, energy and cost ledger
 
 -- Ordered rating scale used by content policy, channels, products and fans.
 --   general     : suitable for any audience
@@ -182,6 +187,19 @@ CREATE TABLE core.inbound_webhooks (
 CREATE INDEX inbound_webhooks_status_idx ON core.inbound_webhooks (status, received_at)
   WHERE status IN ('received', 'failed');
 
+-- Cursors for pull-based ingestion: Telegram getUpdates offsets per bot, Instagram
+-- comment/conversation backfill, getStarTransactions paging. A cursor advances only
+-- after the fetched items are persisted (persist-then-advance), so a crash
+-- re-fetches instead of losing updates.
+CREATE TABLE core.poll_cursors (
+  source        text NOT NULL CHECK (source IN ('telegram_updates', 'instagram_comments',
+                                                'instagram_conversations', 'telegram_star_transactions')),
+  account_ref   text NOT NULL,                    -- bot id / IG account id
+  cursor        text NOT NULL,                    -- e.g. next getUpdates offset
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (source, account_ref)
+);
+
 -- Idempotency ledger for every side-effecting external call.
 CREATE TABLE core.external_operations (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -207,7 +225,7 @@ CREATE TABLE core.external_operations (
 CREATE INDEX external_operations_unknown_idx ON core.external_operations (status, updated_at)
   WHERE status IN ('unknown', 'failed_retryable', 'in_flight');
 
--- Mirror of BullMQ failed jobs that exhausted their attempts.
+-- Jobs (Postgres-backed queue) that exhausted their attempts.
 CREATE TABLE core.dead_letter_jobs (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id    uuid,
@@ -235,6 +253,68 @@ CREATE TABLE core.feature_flags (
   updated_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE NULLS NOT DISTINCT (workspace_id, influencer_id, key)
 );
+
+-- =============================================================================
+-- INFERENCE REGISTRY (platform-level, no tenant data): licenses and models.
+-- A model can be used in production only when status = 'approved', which
+-- requires a reviewed license allowing commercial use (CHECK below).
+-- =============================================================================
+
+CREATE TABLE inference.licenses (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key                 text NOT NULL UNIQUE,        -- e.g. 'apache-2.0', 'openrail++-m', 'flux-1-dev-noncommercial'
+  name                text NOT NULL,
+  url                 text NOT NULL,
+  weights_commercial  boolean NOT NULL,            -- may we run the weights for a commercial service?
+  outputs_commercial  boolean NOT NULL,            -- may we use generated outputs commercially?
+  territory_exclusions text[] NOT NULL DEFAULT '{}',  -- e.g. '{EU,UK,KR}'
+  revenue_threshold   text,                        -- e.g. 'free below USD 1M annual revenue'
+  use_restrictions    text,                        -- acceptable-use clauses relevant to us
+  reviewed_by         uuid REFERENCES core.users(id),
+  reviewed_at         timestamptz,
+  evidence_ref        text NOT NULL                -- where the license text was read (docs/15)
+);
+
+CREATE TABLE inference.models (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key                 text NOT NULL UNIQUE,        -- e.g. 'chat.primary', 'image.base.v1', 'video.i2v.v1'
+  kind                text NOT NULL CHECK (kind IN ('llm', 'vlm', 'guard', 'embedding', 'reranker',
+                                                    'image_base', 'image_edit', 'video', 'lipsync',
+                                                    'tts', 'upscaler', 'detector', 'segmenter',
+                                                    'face_embedding', 'image_classifier', 'vae',
+                                                    'text_encoder', 'lora_base')),
+  name                text NOT NULL,               -- upstream model name
+  source_uri          text NOT NULL,               -- upstream repo / URL
+  revision            text NOT NULL,               -- upstream commit / version tag
+  file_sha256         text[] NOT NULL,             -- hashes of the exact files deployed
+  quantization        text,                        -- e.g. 'fp8_e4m3', 'nvfp4', 'gguf-q5_k_m', 'awq-int4'
+  engine              text NOT NULL CHECK (engine IN ('llm_engine', 'comfyui', 'inference_host', 'trainer')),
+  license_id          uuid NOT NULL REFERENCES inference.licenses(id),
+  measured_peak_vram_mb int,                       -- from ops.benchmark_runs (B-*-1)
+  measured_load_s     numeric,                     -- from B-SYS-2
+  status              text NOT NULL DEFAULT 'candidate'
+                      CHECK (status IN ('candidate', 'evaluating', 'approved', 'retired', 'blocked')),
+  approved_by         uuid REFERENCES core.users(id),
+  approved_at         timestamptz,
+  notes               text,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  CHECK (status <> 'approved' OR approved_by IS NOT NULL)
+);
+
+-- Enforce: only commercially licensed models can be approved.
+CREATE FUNCTION inference.assert_model_license() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE l inference.licenses%ROWTYPE;
+BEGIN
+  IF NEW.status = 'approved' THEN
+    SELECT * INTO l FROM inference.licenses WHERE id = NEW.license_id;
+    IF NOT (l.weights_commercial AND l.outputs_commercial) OR l.reviewed_at IS NULL THEN
+      RAISE EXCEPTION 'model % cannot be approved: license % not reviewed or not commercial', NEW.key, l.key;
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER models_license_gate BEFORE INSERT OR UPDATE ON inference.models
+  FOR EACH ROW EXECUTE FUNCTION inference.assert_model_license();
 
 -- =============================================================================
 -- IDENTITY (Module A): influencer, persona versions, canon, visual references
@@ -267,8 +347,8 @@ CREATE TABLE core.membership_influencer_scopes (
 );
 
 -- Encrypted platform credentials, one row per connected account.
--- Envelope encryption: data key encrypted by KMS (per workspace); token
--- encrypted with AES-256-GCM under the data key.
+-- Envelope encryption: a per-workspace data key, wrapped by the local master
+-- key (docs/09 §2); the token is encrypted with AES-256-GCM under the data key.
 CREATE TABLE core.integration_accounts (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id          uuid NOT NULL REFERENCES core.workspaces(id),
@@ -282,7 +362,7 @@ CREATE TABLE core.integration_accounts (
   credential_ciphertext bytea NOT NULL,
   credential_nonce      bytea NOT NULL,
   data_key_ciphertext   bytea NOT NULL,
-  kms_key_id            text  NOT NULL,
+  wrapping_key_id       text  NOT NULL,           -- id/version of the master key that wrapped the data key
   credential_version    int   NOT NULL DEFAULT 1,
   expires_at            timestamptz,              -- IG long-lived tokens expire; refresh job alerts
   last_refreshed_at     timestamptz,
@@ -318,6 +398,26 @@ CREATE UNIQUE INDEX persona_one_active_idx ON identity.persona_versions (influen
 ALTER TABLE identity.influencers
   ADD CONSTRAINT influencers_active_persona_fk
   FOREIGN KEY (active_persona_version_id) REFERENCES identity.persona_versions(id);
+
+-- Per-persona runtime configuration: what makes 30 personas share one stack.
+CREATE TABLE identity.persona_runtime_config (
+  influencer_id            uuid PRIMARY KEY REFERENCES identity.influencers(id),
+  workspace_id             uuid NOT NULL REFERENCES core.workspaces(id),
+  rollout_stage            smallint NOT NULL DEFAULT 1 CHECK (rollout_stage BETWEEN 1 AND 4),
+  content_tier             text NOT NULL DEFAULT 'lite' CHECK (content_tier IN ('lite', 'standard', 'plus')),
+  gpu_quota_seconds_day    int  NOT NULL CHECK (gpu_quota_seconds_day >= 0),   -- fair-share weight (docs/13 §6.2)
+  free_replies_per_day     int  NOT NULL CHECK (free_replies_per_day >= 0),    -- capacity + wellbeing control
+  premium_replies_per_day  int  NOT NULL CHECK (premium_replies_per_day >= 0),
+  languages                text[] NOT NULL DEFAULT '{en}',
+  quiet_hours              jsonb NOT NULL DEFAULT '{}',   -- persona "offline" hours for scheduled posts
+  image_workflow_key       text,                          -- inference.workflows.key
+  video_workflow_key       text,
+  identity_adapter_id      uuid,                          -- FK to identity.model_adapters added below
+  business_account_enabled boolean NOT NULL DEFAULT false,
+  paused                   boolean NOT NULL DEFAULT false, -- excludes persona from scheduling
+  updated_by               uuid REFERENCES core.users(id),
+  updated_at               timestamptz NOT NULL DEFAULT now()
+);
 
 -- Canon facts keep the fictional biography consistent across content and chats.
 CREATE TABLE identity.canon_facts (
@@ -387,7 +487,7 @@ CREATE TABLE content.media_assets (
   workspace_id      uuid NOT NULL REFERENCES core.workspaces(id),
   influencer_id     uuid NOT NULL REFERENCES identity.influencers(id),
   kind              text NOT NULL CHECK (kind IN ('image', 'video', 'audio', 'thumbnail')),
-  storage_key       text NOT NULL UNIQUE,         -- ws/{ws}/inf/{inf}/media/{id}.{ext}
+  storage_key       text NOT NULL UNIQUE,         -- local path: ws/{ws}/inf/{inf}/media/{sha256[0:2]}/{sha256}.{ext}
   mime_type         text NOT NULL,
   bytes             bigint NOT NULL,
   width             int,
@@ -425,14 +525,17 @@ CREATE TABLE identity.reference_assets (
   retired_at      timestamptz
 );
 
--- LoRA / fine-tune / reference-set adapters per influencer and base model.
+-- LoRA / fine-tune / reference-set adapters per influencer and base model,
+-- trained locally (class T jobs). Weights live on local disk (external_ref = path).
 CREATE TABLE identity.model_adapters (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id        uuid NOT NULL REFERENCES core.workspaces(id),
   influencer_id       uuid NOT NULL REFERENCES identity.influencers(id),
-  provider            text NOT NULL,
+  provider            text NOT NULL DEFAULT 'local',
   base_model          text NOT NULL,
+  base_model_id       uuid REFERENCES inference.models(id),
   kind                text NOT NULL CHECK (kind IN ('lora', 'fine_tune', 'reference_set', 'voice')),
+  training_gpu_job_id uuid,                       -- FK added below (inference.gpu_jobs)
   external_ref        text,                       -- weights URL/id at vendor or our bucket key
   trigger_token       text,
   dataset_manifest_ref text,                      -- which reference assets were used (reproducibility)
@@ -509,8 +612,11 @@ CREATE TABLE content.generation_jobs (
   content_item_id     uuid REFERENCES content.content_items(id),
   kind                text NOT NULL CHECK (kind IN ('image', 'image_edit', 'video', 'upscale',
                                                     'adapter_training', 'caption')),
-  provider            text NOT NULL,
-  model               text NOT NULL,
+  provider            text NOT NULL DEFAULT 'comfyui',
+  model               text NOT NULL,              -- inference.models.key of the base model
+  workflow_key        text,                       -- inference.workflows.key
+  workflow_version    int,
+  gpu_job_id          uuid,                       -- FK added below (inference.gpu_jobs)
   prompt_template_id  uuid REFERENCES content.prompt_templates(id),
   prompt              jsonb NOT NULL,             -- rendered prompt, negative prompt, seed
   params              jsonb NOT NULL DEFAULT '{}',
@@ -525,7 +631,9 @@ CREATE TABLE content.generation_jobs (
   requested_by_type   text NOT NULL CHECK (requested_by_type IN ('user', 'agent', 'system')),
   requested_by_id     text NOT NULL,
   agent_run_id        uuid,
-  cost_usd            numeric(14, 6),
+  gpu_seconds         numeric(12, 3),             -- measured
+  energy_wh           numeric(12, 4),             -- attributed from power telemetry
+  cost_usd            numeric(14, 6),             -- attributed internal cost (docs/12)
   error               jsonb,
   created_at          timestamptz NOT NULL DEFAULT now(),
   started_at          timestamptz,
@@ -1138,6 +1246,18 @@ CREATE TABLE monetization.credit_balances (
   PRIMARY KEY (fan_id, influencer_id)
 );
 
+-- Daily free/premium reply allowance usage (persistent; formerly a cache counter).
+CREATE TABLE monetization.daily_allowances (
+  workspace_id  uuid NOT NULL REFERENCES core.workspaces(id),
+  fan_id        uuid NOT NULL REFERENCES crm.fans(id),
+  influencer_id uuid NOT NULL REFERENCES identity.influencers(id),
+  day           date NOT NULL,                    -- in the persona's timezone
+  used          int  NOT NULL DEFAULT 0 CHECK (used >= 0),
+  daily_limit   int  NOT NULL CHECK (daily_limit >= 0),   -- may be lowered intra-day by load shedding
+  PRIMARY KEY (fan_id, influencer_id, day)
+  -- consumption is atomic: UPDATE … SET used = used + 1 WHERE used < daily_limit RETURNING …
+);
+
 CREATE TABLE monetization.credit_ledger (
   id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   workspace_id    uuid NOT NULL REFERENCES core.workspaces(id),
@@ -1279,10 +1399,10 @@ CREATE TABLE analytics.price_book (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider       text NOT NULL,
   model          text NOT NULL,
-  unit           text NOT NULL CHECK (unit IN ('input_mtok', 'output_mtok', 'cache_read_mtok',
-                                               'cache_write_5m_mtok', 'cache_write_1h_mtok',
-                                               'image', 'megapixel', 'video_second', 'request',
-                                               'training_run', 'gb_month', 'gb_egress')),
+  unit           text NOT NULL CHECK (unit IN ('gpu_second', 'kwh', 'gb_month', 'gb_egress',
+                                               'month', 'request',
+                                               -- retained for optional future paid providers:
+                                               'input_mtok', 'output_mtok', 'image', 'video_second')),
   unit_price_usd numeric(14, 8) NOT NULL,
   effective_from timestamptz NOT NULL,
   effective_to   timestamptz,
@@ -1297,14 +1417,14 @@ CREATE TABLE analytics.usage_events (
   occurred_at         timestamptz NOT NULL,
   workspace_id        uuid NOT NULL,
   influencer_id       uuid,                        -- NULL = shared/platform overhead (allocated later)
-  category            text NOT NULL CHECK (category IN ('llm', 'image_generation', 'video_generation',
-                                                        'adapter_training', 'moderation', 'face_check',
-                                                        'embedding', 'storage', 'egress',
+  category            text NOT NULL CHECK (category IN ('llm', 'vlm', 'guard', 'image_generation',
+                                                        'video_generation', 'adapter_training', 'moderation',
+                                                        'face_check', 'embedding', 'storage', 'egress',
                                                         'telegram_paid_broadcast', 'other')),
   provider            text NOT NULL,
   model               text,
   operation           text NOT NULL,              -- e.g. 'conversation.reply', 'agent.content_strategist'
-  quantities          jsonb NOT NULL,             -- {"input_tokens":…, "output_tokens":…, "cache_read_tokens":…, "images":…}
+  quantities          jsonb NOT NULL,             -- {"gpu_seconds":…, "energy_wh":…, "prompt_tokens":…, "completion_tokens":…, "images":…}
   cost_usd            numeric(14, 6) NOT NULL,
   price_book_ids      uuid[] NOT NULL DEFAULT '{}',
   agent_run_id        uuid,
@@ -1618,6 +1738,226 @@ CREATE TABLE approvals.incidents (
   postmortem_ref text
 );
 
+-- =============================================================================
+-- INFERENCE RUNTIME (platform-level): nodes, workflows, GPU modes, GPU job queue
+-- =============================================================================
+
+CREATE TABLE inference.gpu_nodes (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            text NOT NULL UNIQUE,            -- e.g. 'ws-01'
+  gpu_name        text NOT NULL,
+  vram_total_mb   int  NOT NULL,
+  capabilities    text[] NOT NULL,                 -- job classes this node accepts: '{I,N,B,H,A,T}'
+  current_mode    text,
+  status          text NOT NULL DEFAULT 'online' CHECK (status IN ('online', 'draining', 'safe', 'offline')),
+  last_heartbeat  timestamptz
+);
+
+-- Versioned ComfyUI workflow templates (API format) with measured profiles.
+CREATE TABLE inference.workflows (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key                   text NOT NULL,             -- e.g. 'img.portrait.v', 'vid.i2v.v'
+  version               int  NOT NULL,
+  kind                  text NOT NULL CHECK (kind IN ('image_gen', 'image_edit', 'upscale', 'detail',
+                                                      'video_gen', 'lipsync', 'lora_train')),
+  graph                 jsonb NOT NULL,            -- ComfyUI API-format graph
+  param_bindings        jsonb NOT NULL,            -- which node inputs receive prompt/seed/LoRA/refs/size
+  required_model_ids    uuid[] NOT NULL,
+  custom_nodes_lock     text NOT NULL,             -- hash of the pinned custom-node set
+  degradation_profiles  jsonb NOT NULL DEFAULT '[]',  -- OOM ladder steps (docs/13 §6.6)
+  allowed_modes         text[] NOT NULL,           -- e.g. '{S,M}'
+  measured_peak_vram_mb int,                       -- B-IMG-1 / B-VID-1
+  measured_p50_s        numeric,                   -- B-IMG-2 / B-VID-2 (sustained)
+  measured_p95_s        numeric,
+  benchmark_run_id      uuid,
+  status                text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'benchmarked', 'approved', 'retired')),
+  approved_by           uuid REFERENCES core.users(id),
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (key, version),
+  CHECK (status <> 'approved' OR (approved_by IS NOT NULL AND measured_peak_vram_mb IS NOT NULL))
+);
+
+CREATE TABLE inference.gpu_modes (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  node_id               uuid NOT NULL REFERENCES inference.gpu_nodes(id),
+  name                  text NOT NULL CHECK (name IN ('S', 'M', 'T', 'Safe')),
+  version               int  NOT NULL,
+  chat_model_id         uuid REFERENCES inference.models(id),
+  chat_kv_budget_mb     int,
+  chat_admitted_concurrency int,                   -- b* for this mode (B-LLM-3)
+  comfy_reserve_vram_mb int,
+  media_budget_mb       int,
+  allowed_classes       text[] NOT NULL,
+  max_duration_min      int,
+  windows               jsonb NOT NULL DEFAULT '[]',   -- scheduled windows (persona-traffic aware)
+  enter_exit_thresholds jsonb NOT NULL DEFAULT '{}',   -- λ thresholds with hysteresis
+  status                text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'retired')),
+  approved_by           uuid REFERENCES core.users(id),
+  UNIQUE (node_id, name, version),
+  -- A mode cannot be active with unmeasured (NULL) sizing parameters.
+  CHECK (status <> 'active' OR (approved_by IS NOT NULL AND chat_model_id IS NOT NULL
+                                AND chat_kv_budget_mb IS NOT NULL AND chat_admitted_concurrency IS NOT NULL
+                                AND comfy_reserve_vram_mb IS NOT NULL AND media_budget_mb IS NOT NULL))
+);
+
+CREATE TABLE inference.mode_transitions (
+  id                    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  node_id               uuid NOT NULL REFERENCES inference.gpu_nodes(id),
+  from_mode             text NOT NULL,
+  to_mode               text NOT NULL,
+  reason                text NOT NULL,
+  started_at            timestamptz NOT NULL DEFAULT now(),
+  completed_at          timestamptz,
+  jobs_interrupted      int NOT NULL DEFAULT 0,
+  chat_requests_delayed int NOT NULL DEFAULT 0,
+  holding_messages_sent int NOT NULL DEFAULT 0,
+  success               boolean
+);
+
+-- Persistent GPU job queue (classes N, B, H, A, T). Chat (class I) is admitted
+-- in-process from the conversation queue (docs/13 §6.3).
+CREATE TABLE inference.gpu_jobs (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id      uuid REFERENCES core.workspaces(id),        -- NULL for platform jobs (benchmarks)
+  influencer_id     uuid REFERENCES identity.influencers(id),
+  node_id           uuid REFERENCES inference.gpu_nodes(id),     -- set on lease
+  job_class         char(1) NOT NULL CHECK (job_class IN ('N', 'B', 'H', 'A', 'T')),
+  kind              text NOT NULL CHECK (kind IN ('image_gen', 'image_edit', 'upscale', 'detail', 'video_gen',
+                                                  'lipsync', 'vlm_validate', 'embed_batch', 'agent_run',
+                                                  'memory_extract', 'lora_train', 'benchmark', 'eval')),
+  workflow_id       uuid REFERENCES inference.workflows(id),
+  model_ids         uuid[] NOT NULL DEFAULT '{}',
+  subject_type      text,                                        -- e.g. 'generation_job', 'agent_task'
+  subject_id        uuid,
+  priority          smallint NOT NULL DEFAULT 3,
+  due_at            timestamptz,
+  est_vram_mb       int NOT NULL,
+  est_gpu_seconds   numeric(12, 3) NOT NULL,
+  idempotency_key   text NOT NULL UNIQUE,
+  status            text NOT NULL DEFAULT 'queued' CHECK (status IN (
+                      'queued', 'leased', 'running', 'succeeded', 'failed_retryable',
+                      'preempted', 'dead', 'cancelled')),
+  attempts          int NOT NULL DEFAULT 0,
+  max_attempts      int NOT NULL DEFAULT 4,
+  degradation_step  smallint NOT NULL DEFAULT 0,
+  lease_expires_at  timestamptz,
+  heartbeat_at      timestamptz,
+  input             jsonb NOT NULL,
+  output            jsonb,
+  gpu_seconds       numeric(12, 3),
+  energy_wh         numeric(12, 4),
+  peak_vram_mb      int,
+  error             jsonb,
+  requested_by_type text NOT NULL CHECK (requested_by_type IN ('user', 'agent', 'system', 'schedule')),
+  requested_by_id   text NOT NULL,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  started_at        timestamptz,
+  finished_at       timestamptz,
+  CHECK (attempts <= max_attempts)
+);
+CREATE INDEX gpu_jobs_ready_idx ON inference.gpu_jobs (job_class, priority, due_at) WHERE status = 'queued';
+CREATE INDEX gpu_jobs_inflight_idx ON inference.gpu_jobs (heartbeat_at) WHERE status IN ('leased', 'running');
+CREATE INDEX gpu_jobs_persona_day_idx ON inference.gpu_jobs (influencer_id, finished_at) WHERE status = 'succeeded';
+
+ALTER TABLE content.generation_jobs
+  ADD CONSTRAINT generation_jobs_gpu_job_fk FOREIGN KEY (gpu_job_id) REFERENCES inference.gpu_jobs(id);
+ALTER TABLE identity.model_adapters
+  ADD CONSTRAINT model_adapters_training_job_fk FOREIGN KEY (training_gpu_job_id) REFERENCES inference.gpu_jobs(id);
+ALTER TABLE identity.persona_runtime_config
+  ADD CONSTRAINT persona_runtime_adapter_fk FOREIGN KEY (identity_adapter_id) REFERENCES identity.model_adapters(id);
+
+-- =============================================================================
+-- OPS (platform-level): benchmarks, capacity, telemetry rollups, energy, costs
+-- =============================================================================
+
+CREATE TABLE ops.environment_fingerprints (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  node_id       uuid REFERENCES inference.gpu_nodes(id),
+  captured_at   timestamptz NOT NULL DEFAULT now(),
+  fingerprint   jsonb NOT NULL,                  -- docs/14 §1: hardware, driver, engines, power mode, …
+  fingerprint_hash text NOT NULL,
+  complete      boolean NOT NULL                 -- incomplete fingerprints cannot satisfy gates
+);
+
+CREATE TABLE ops.benchmark_runs (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  suite           text NOT NULL,                 -- e.g. 'llm', 'image', 'video', 'thermal', 'fail', 'quality'
+  test_id         text NOT NULL,                 -- e.g. 'B-LLM-3', 'Q-CHAT-1'
+  environment_id  uuid NOT NULL REFERENCES ops.environment_fingerprints(id),
+  subject_key     text,                          -- model or workflow key + version
+  params          jsonb NOT NULL,
+  metrics         jsonb NOT NULL,                -- {"p50":…, "p95":…, "throughput":…, "peak_vram_mb":…, "n":…, "cv":…}
+  raw_ref         text NOT NULL,                 -- bench/results/<run_id>/
+  git_sha         text NOT NULL,
+  operator        uuid REFERENCES core.users(id),
+  valid           boolean NOT NULL,              -- false if CV/repetition rules not met
+  passed          boolean,                       -- for pass/fail tests (drills, quality)
+  run_at          timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX benchmark_runs_latest_idx ON ops.benchmark_runs (test_id, subject_key, run_at DESC) WHERE valid;
+
+-- Capacity worksheet snapshots (docs/13 §7.4), generated from the latest valid runs.
+CREATE TABLE ops.capacity_snapshots (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  node_id             uuid NOT NULL REFERENCES inference.gpu_nodes(id),
+  computed_at         timestamptz NOT NULL DEFAULT now(),
+  inputs              jsonb NOT NULL,            -- every parameter with its benchmark_run_id
+  g_day_media_s       numeric,
+  d_persona_s         jsonb,                     -- per tier
+  n_max               jsonb,                     -- per tier
+  chat_b_star         int,
+  chat_mu_star        numeric,
+  chat_a_max          numeric,
+  chat_daf_max        numeric,
+  rollout_stage       smallint NOT NULL
+);
+
+CREATE TABLE ops.gpu_daily (
+  node_id               uuid NOT NULL REFERENCES inference.gpu_nodes(id),
+  day                   date NOT NULL,
+  busy_seconds          jsonb NOT NULL,          -- per job class
+  utilization_by_mode   jsonb NOT NULL,          -- U_mode observed
+  throttle_seconds      int NOT NULL,
+  max_temp_c            numeric,
+  energy_kwh_gpu_est    numeric,                 -- NVML power integration
+  oom_count             int NOT NULL DEFAULT 0,
+  engine_restarts       int NOT NULL DEFAULT 0,
+  mode_transitions      int NOT NULL DEFAULT 0,
+  PRIMARY KEY (node_id, day)
+);
+
+-- Wall-socket energy readings (smart plug) — the measured basis for energy cost.
+CREATE TABLE ops.energy_readings (
+  id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  node_id         uuid REFERENCES inference.gpu_nodes(id),
+  period_start    timestamptz NOT NULL,
+  period_end      timestamptz NOT NULL,
+  kwh             numeric(12, 4) NOT NULL CHECK (kwh >= 0),
+  source          text NOT NULL CHECK (source IN ('smart_plug', 'utility_meter', 'manual')),
+  tariff_per_kwh  numeric(10, 5) NOT NULL,
+  currency        char(3) NOT NULL,
+  evidence_ref    text,
+  CHECK (period_end > period_start)
+);
+
+-- Measured monthly operating costs (docs/12): every line has evidence.
+CREATE TABLE ops.cost_entries (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  period          date NOT NULL,                 -- first day of month
+  category        text NOT NULL CHECK (category IN ('electricity', 'connectivity', 'backup_storage',
+                                                    'phone_numbers', 'domain_dns', 'monitoring',
+                                                    'hardware_amortization', 'hardware_reserve',
+                                                    'software', 'other')),
+  amount          numeric(12, 2) NOT NULL CHECK (amount >= 0),
+  currency        char(3) NOT NULL,
+  basis           text NOT NULL,                 -- invoice, kWh x tariff, straight-line amortization
+  evidence_ref    text NOT NULL,                 -- invoice id / energy_readings range / asset record
+  allocation_rule text NOT NULL DEFAULT 'gpu_seconds',   -- how it is attributed to personas
+  recorded_by     uuid REFERENCES core.users(id),
+  recorded_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (period, category, evidence_ref)
+);
+
 -- Takedown / likeness / NCII complaints (48-hour handling target).
 CREATE TABLE approvals.takedown_requests (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1639,6 +1979,10 @@ CREATE TABLE approvals.takedown_requests (
 
 -- =============================================================================
 -- ROW-LEVEL SECURITY (defense in depth for tenant isolation)
+-- 'inference' and 'ops' are platform-level schemas operated by the Inference
+-- Host and ops tooling (separate DB roles); they hold no fan data. Tenant
+-- isolation for generated media is enforced when outputs are registered into
+-- the tenant-scoped content tables.
 -- The application sets: SET LOCAL app.workspace_id = '<uuid>' per transaction.
 -- The application role is created NOBYPASSRLS. Migrations run as the owner role.
 -- =============================================================================

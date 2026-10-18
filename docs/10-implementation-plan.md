@@ -1,142 +1,141 @@
 # 10 — Phased Implementation Plan
 
-> Status: Proposed · Assumes the team in AS3 (2–3 engineers, a content/persona lead, part-time operators/reviewers, fractional counsel and accountant)
+> Status: Proposed — **rewritten 2026-10-18 for the single-workstation, local-inference MVP (1 → 5 → 10 → 20–30 personas)** · Gate tests: [doc 11](11-mvp-acceptance-criteria.md) · Capacity: [doc 13](13-gpu-scheduling-and-capacity.md) · Benchmarks: [doc 14](14-benchmark-protocol.md)
+>
+> **Principle: build one complete persona end-to-end first. Add personas only when the previous stage's measured gate passes.** If measurements show the workstation's limit is below 30 at acceptable quality, the plan stops at that measured limit. The response is to reduce content tiers or add a second inference node, never to lower the quality or safety bars.
 
-## 1. Timeline overview
+## 1. Stage overview
 
 ```mermaid
 gantt
   dateFormat  YYYY-MM-DD
   axisFormat  %b %d
-  title MVP to launch (~15 weeks) and beyond
-  section Phase 0 — Foundations & verification
-  Accounts, legal kickoff, verification spikes      :p0a, 2026-10-19, 14d
-  Platform core (tenancy, auth, audit, outbox, CI/CD):p0b, 2026-10-19, 14d
-  section Phase 1 — Identity & content pipeline
-  Persona + character sheet + calibration set       :p1a, after p0a, 14d
-  Generate → validate → approve → publish           :p1b, after p0b, 28d
-  section Phase 2 — Conversation, CRM, monetization
-  Consent, CRM, conversation pipeline, operator UI  :p2a, after p1b, 35d
-  Payments, subscriptions, entitlements, PPV, credits:p2b, after p1b, 35d
-  Conversation evals + model-per-route decision     :p2c, after p1b, 35d
-  section Phase 3 — Engagement, analytics, agents, hardening
-  IG comments/DM drafts, Business account drafts    :p3a, after p2a, 21d
-  KPIs, dashboards, agents (L1/L2), QA sampling     :p3b, after p2b, 21d
-  Hardening, legal sign-off, closed beta            :p3c, after p2b, 28d
-  section Launch
-  Public launch, gated by doc 11                    :milestone, m1, after p3c, 0d
-  section Phase 4–5
-  Autonomy promotion, 2nd influencer, optimization  :p4, after p3c, 90d
-  Multi-workspace SaaS, scale, diversification      :p5, after p4, 180d
+  title Stage plan (durations are planning estimates; gates are measured)
+  section Stage 0 — Foundations, benchmarks, bake-off
+  Workstation provisioning, ops baseline, backups          :s0a, 2026-10-26, 14d
+  Benchmark harness, model bake-offs, licence review        :s0b, 2026-10-26, 21d
+  Platform core + Inference Host skeleton (Mode S only)     :s0c, 2026-10-26, 21d
+  Gate G0                                                   :milestone, g0, after s0b, 0d
+  section Stage 1 — Persona 1 end-to-end
+  Persona 1 onboarding (character sheet, LoRA, Q-ID-1)      :s1a, after g0, 14d
+  Content pipeline + publishing + approvals                 :s1b, after g0, 28d
+  Conversation + consent + monetization + entitlements      :s1c, after g0, 35d
+  Agents, analytics, capacity dashboard, hardening          :s1d, after s1b, 21d
+  Closed beta (≥ 14 days, measure Z, κ, k_img, U_S)          :s1e, after s1c, 21d
+  Gate G1                                                   :milestone, g1, after s1e, 0d
+  section Stage 2 — 5 personas
+  LoRA training campaign (Mode T windows), tiers            :s2a, after g1, 21d
+  Multi-persona ops, chat L3 promotion                      :s2b, after g1, 35d
+  Gate G2                                                   :milestone, g2, after s2b, 0d
+  section Stage 3 — 10 personas
+  Personas 6–10, Business Verification, Mode M if needed    :s3a, after g2, 35d
+  Gate G3                                                   :milestone, g3, after s3a, 0d
+  section Stage 4 — 20–30 personas (batches of 5)
+  Batch +5, 14-day soak, mini-gate (repeat)                 :s4a, after g3, 70d
 ```
 
-## 2. Phase 0: Foundations and verification (weeks 1–2)
+| Stage | Personas live | Planning duration | Exit gate (doc 11) |
+|---|---|---|---|
+| **0** | 0 (staging only) | ~3 weeks | **G0**: fingerprinted machine; engines and models chosen by evidence; Mode S measured; restore drill passed |
+| **1** | 1 | ~8–9 weeks incl. ≥ 14-day beta | **G1**: complete end-to-end acceptance for one persona + calibrated capacity model |
+| **2** | 5 | ~5 weeks | **G2**: multi-persona fairness, chat L3 promotion, projection for 10 ≤ 80% |
+| **3** | 10 | ~5 weeks | **G3**: account scaling, mode transitions (if any), full-size restore |
+| **4** | 15 → 20 → 25 → 30 | ~2–3 weeks per batch of 5 | **G4.n** per batch; stop at measured `N_max` |
+| **5** (optional) | > 30 or standby | — | Second inference node and/or warm standby (doc 13 §10, doc 09 §9) |
 
-**Goal:** remove unknowns and have a secure, observable skeleton running in staging.
+Durations are planning estimates for a team of 2 engineers + 1 content/persona lead + part-time reviewers and operators. **Gates are pass/fail on measurements, not dates.**
 
-| Workstream | Deliverables |
-|---|---|
-| **Verification spikes** | Execute the doc 02 §8 checklist with throwaway scripts against test accounts: `is_ai_generated`, IG webhooks for non-role users, Stories on a Business account, Stars test flows and renewal pre-checkout behavior, join-request DM window, business-bot counterpart view. **Update doc 02 evidence tags.** |
-| **Accounts** | Meta developer app (staging + prod) and **start Business Verification**. Persona IG **Business** account; begin a manual, human-run warm-up period of organic posting before API automation (recommendation, to reduce spam-signal risk). Telegram: prod and staging bots (BotFather), free and premium channels (bot as admin with minimal rights), persona Telegram account on a company-owned number with 2FA. |
-| **Legal & compliance kickoff** | Engage counsel (privacy, consumer, AI disclosure) and an accountant (Stars/TON). Start the DPIA. Draft the privacy policy, terms, AI disclosure text, crisis protocol v1, refund policy, and the persona likeness review. Decide on the static legal page (README decision D2). |
-| **Repo & delivery** | pnpm monorepo (`apps/api`, `apps/worker`, `apps/admin`, `packages/domain`, `packages/adapters`, `packages/db`), lint/format/typecheck, Vitest + Testcontainers, Docker, GitHub Actions, Render staging and production projects, Doppler, AWS KMS, Sentry, logs. |
-| **Platform core** | Workspaces/users/memberships/roles; OIDC SSO; RBAC middleware; audit log + sealing job; outbox relay + inbox; idempotency ledger; DLQ mirror; feature flags and kill switches; Provider Gateway skeleton (rate limit, retry, circuit breaker, metering); webhook ingress with verification and persistence. |
+## 2. Stage 0 — Foundations, benchmarks and bake-off (~3 weeks)
 
-**Exit criteria**
-- Staging deployed through the pipeline.
-- SSO login with MFA works.
-- RBAC and cross-tenant tests pass.
-- A verified Telegram update and a verified Meta webhook are persisted end-to-end.
-- Spike results are recorded and doc 02 is updated.
-- The legal workplan is agreed.
-
-## 3. Phase 1: Identity and content pipeline (weeks 3–6)
-
-**Goal:** a consistent persona whose approved content is published to all channels without manual handling.
+**Goal:** a hardened, observable, recoverable workstation, plus evidence-based choices of engine and models. No personas live yet.
 
 | Workstream | Deliverables |
 |---|---|
-| **Identity (A)** | Persona version editor, plus approval for canon facts. Character sheet workflow (human-curated generations → canonical references). Real-person resemblance check. Calibration set and threshold report. |
-| **Content (B)** | Briefs, prompt templates, provider router (FLUX.2 [pro] primary, Nano Banana 2.1 fallback). Generation jobs. Validation suite W2 (Rekognition, omni-moderation, Claude vision rubric). Captions W6. Renditions plus C2PA re-signing. Basic video W3 (Veo 3.1 Fast, keyframe-first). |
-| **Publishing (C)** | Channels; publications with hash-bound authorization; scheduler; Telegram channel publish (photo, album, video); IG publish (image, carousel, Reel, Story) with quota checks and reconciliation of `unknown` outcomes; insights snapshots and the `story_insights` webhook. |
-| **Approval (I)** | Approval requests/decisions, reviewer UI with diff and validation results, batch approval, two-approval rule. |
-| **Costs (G)** | Price book, usage-event metering on every vendor call, budgets with warn/hard actions, cost-per-item view. |
-| **Agents v0 (H)** | Agent runner (structured outputs, budgets, run records, proposals, policy engine). Production agent (L3 within budget), Social Media captions (L2), QA pre-screen (block/hold). |
-| **Dashboard (J) v1** | Content board, calendar, approval queue, publication status, DLQ viewer, audit search, cost view. |
+| **Hardware & OS** | Inventory vs. doc 15 §4 (RAM, NVMe, backup disk, adapter rating). Windows 11 Pro; update deferrals; power, lid and battery settings; BitLocker (TPM); service account + auto-login; NVIDIA "Prefer No Sysmem Fallback"; display on the iGPU; router UPS (doc 09 §11) |
+| **Runtime** | WSL2 distro (Ubuntu LTS, systemd), `.wslconfig`, keep-alive task, host agent (Windows), `cloudflared` service, Cloudflare Access + SSO, Healthchecks.io heartbeats |
+| **Data & backups** | Postgres 16 + WAL archiving; pgBackRest (≥ 2.59.3) + restic to the local backup disk and offsite (B2 or R2). **First restore drill (B-FAIL-7).** |
+| **Observability** | Prometheus, Grafana, Loki; GPU telemetry from the host agent; smart plug with energy metering; alert routing to the ops Telegram bot + email |
+| **Benchmark harness** | `bench` CLI, samplers, LLM load generator with the production prompt shape, ComfyUI driver (doc 14 §2). Suites B-SYS, B-IO, B-THERM, B-PWR baseline. |
+| **Licence registry** | `inference.licenses` rows for every candidate; counsel review of doc 15 §6 items L1–L6 started; excluded-model list enforced |
+| **Bake-offs** (decide by evidence) | (1) **LLM engine:** llama.cpp vs. vLLM (B-LLM-1…6). (2) **Chat model:** Qwen3.5-9B vs. Ministral 3 vs. Gemma 4 (Q-CHAT-1 quick version, 100 cases; B-LLM-4 prefix caching). (3) **Image base:** Z-Image-Turbo vs. Qwen-Image-2512 vs. ERNIE-Image vs. HiDream-O1 (Q-IMG-1 on 50 finals each; B-IMG-1/2). (4) **Video feasibility:** Wan2.2-I2V-A14B vs. TI2V-5B in Mode S (B-VID-1/2). (5) **Guard:** Q-GUARD-1. (6) ComfyUI **inside WSL vs. native Windows** (B-IMG-2). |
+| **Platform code** | Platform core (tenancy, SSO/RBAC, audit, Postgres queue, idempotency ledger, poll cursors, flags); schema migrations from `docs/schema/schema.sql`; invariant suite in CI. Inference Host skeleton: arbiter in **Mode S only**, leases, heartbeats, recovery sweep, ComfyUI driver, Inference Port contract. |
+| **Platform verification** | Doc 02 §8 checklist (16 items), incl. `is_ai_generated`, Stars test flows, webhook-outage behavior, bot/tester limits |
+| **Legal & accounts** | Counsel engaged (licences, DPIA, privacy policy, crisis protocol, terms); accountant engaged; Meta app; **Meta Business Verification started**; two BotFather owner accounts; persona #1 accounts created |
 
-**Exit criteria**
-- Two consecutive weeks of the planned calendar run through the pipeline in staging, against test IG and Telegram accounts.
-- Identity pass rate is measured and on target (≥ 70% first-pass; ≥ 90% of approved items pass the face threshold).
-- Zero duplicate publishes in fault-injection tests (forced timeouts).
-- Every generation call has a `usage_events` row.
+## 3. Stage 1 — One complete persona, end-to-end (~8–9 weeks)
 
-## 4. Phase 2: Conversation, CRM and monetization (weeks 7–11)
-
-**Goal:** fans can talk to the persona safely and pay. Access always matches payments.
+**Goal:** everything the brief requires, working for one persona under real (beta) load, with the capacity model calibrated from real data.
 
 | Workstream | Deliverables |
 |---|---|
-| **CRM (F)** | Fans, identities, consents (with policy-document versions), link tokens, DSR tooling, erasure cascade, segments (basic). |
-| **Bot & Conversation (D)** | Onboarding (disclosure + 18+ + terms + **AI-processing consent**); commands (`/about`, `/memory`, `/forget`, `/stopai`, `/deletemydata`, `/paysupport`, `/terms`, `/privacy`, `/limits`). Debounced conversation pipeline; input/output guards; disclosure timer (start + every 3h + after gaps); crisis protocol and de-identified referral log; minor-signal restricted mode. Memory extraction (Batch) with category allowlist. Operator console: inbox, **L2 draft approval**, takeover modes, escalations with SLAs. |
-| **Monetization (E)** | Catalog and approvals; orders; **pre-checkout fast path**; payments; VIP bot subscription with `subscription` updates; entitlement engine; premium channel join-request gating, expiry sweeper and membership audit; PPV via `sendPaidMedia` + `purchased_paid_media`; message credits and allowances; refunds and `/paysupport`; daily `getStarTransactions` reconciliation; star valuations; payout ledger. |
-| **Evals** | Conversation eval suite (~300 cases incl. red-team). Run on Opus 5.5, Sonnet 5.5 and Haiku 5.5, with the cost per completed conversation. **Decision D3: model per route.** |
+| **Identity (A)** | Persona #1: persona version, canon, character sheet, real-person review, **LoRA trained (Mode T)**, Q-ID-1 passed, calibration set + thresholds |
+| **Content (B)** | W1–W3 ComfyUI workflows registered with measured profiles; local validators (W2); captions (W6); C2PA signing; renditions |
+| **Publishing (C)** | IG (feed, carousel, Reel, Story) via signed URLs on the tunnel; TG free/premium channels; scheduler; reconciliation of `unknown`; insights + `story_insights`; comment ingestion + backfill polling; Meta auto-resubscribe |
+| **Approval (I)** | Reviewer UI, hash binding, batch approval, two-approval rules |
+| **Conversation (D)** | Long-poll ingestion; consent gate; disclosure engine; guard (input/output); debounce; context assembly; **chat admission control, priority classes, holding messages**; memory with consent; operator console (L2 drafts, takeover, escalations); crisis protocol |
+| **Monetization (E)** | Catalog; pre-checkout fast path; VIP bot subscription + `subscription` updates; entitlements; join-request gating; expiry sweeper; membership audit; PPV; credits + daily allowances; refunds and `/paysupport`; reconciliation; **outage recovery (doc 08 §4.8a)** |
+| **Agents (H)** | Production (L3 within budget), Social Media (L2), QA & Compliance (block/hold L4), Strategist (L2), Analytics (L3 internal); runner with schema-constrained outputs; traceability |
+| **GPU & capacity** | Arbiter Mode S in production: fair share (trivial with 1 persona, but exercised in tests with synthetic personas), campaigns, thermal governor, OOM ladder, load shedding; capacity dashboard (doc 13 §7.4) |
+| **Analytics & costs (G)** | KPIs; GPU-second attribution; energy readings; `ops.cost_entries` monthly ledger (doc 12) |
+| **Hardening** | Resilience drills B-FAIL-1…7; runbooks; alert tuning; external review of tunnel/Access configuration |
+| **Closed beta** | ≥ 14 days with persona #1, 100–200 invited adult fans, chat in **L2 drafts**, real Stars at low prices. Measure `Z`, `κ`, `k_img`, `k_vid`, `U_S`, review seconds per item and per draft, operator minutes per day. |
 
-**Exit criteria**
-- E2E payment scenarios pass in staging: purchase, renewal, cancellation, failed renewal, expiry removal, refund, PPV, credits.
-- 7 days of synthetic traffic reconcile with zero unexplained discrepancies.
-- Critical eval cases pass 100%.
-- No AI processing is possible without consent (tested).
-- Erasure cascade test passes.
-
-## 5. Phase 3: Engagement, analytics, agents, hardening and launch (weeks 12–15)
+## 4. Stage 2 — Five personas (~5 weeks)
 
 | Workstream | Deliverables |
 |---|---|
-| **Instagram engagement** | Comment inbox; AI-proposed replies (L2); hide spam (L2); private replies (L2). IG DM drafts within the 24h window (L2). *Depends on the Phase 0 webhook result. If App Review is needed, this ships when access is granted; launch doesn't block on it.* |
-| **Telegram Business account** | Connect the business bot (minimal rights); counterpart consent flow; AI drafts → operator approval → send via `business_connection_id`. |
-| **Analytics (G)** | Daily KPI rollups (doc 08 §5); dashboards for growth, funnel, revenue (⭐ and est. fiat with valuation label), costs, contribution margin; basic experiments. |
-| **Agents** | Influencer Manager, Content Strategist, Monetization (L1/L2), Analytics (L3 internal), Community (L2). Shadow mode; QA sampling; autonomy-policy editor with promotion metrics. |
-| **Hardening** | Load tests; external pen test; DR restore drill; runbooks; on-call rota; alert tuning; security review of RBAC and tenancy. |
-| **Compliance** | DPIA complete; privacy policy, terms, AI disclosure, crisis protocol and sub-processor list published on the static legal page; Meta privacy-policy and data-deletion URLs; BotFather privacy policy set; counsel sign-off. |
-| **Closed beta** | 100–200 invited fans, 2–3 weeks, chat in **L2 drafts**, real Stars at low prices; daily review of QA, escalations, reconciliation and costs. |
+| **Onboarding campaign** | Personas 2–5: character sheets and LoRAs trained in **Mode T windows** (training time measured by B-TRN-1 sets the pace); Q-ID-1 per persona; tiers assigned from the capacity worksheet |
+| **Multi-persona scheduling** | Fair-share quotas live; staggered planning schedules; cross-persona duplicate checks; per-persona dashboards |
+| **Autonomy** | `reply.send` promoted to **L3 for low-risk intents** (doc 06 §5.1); QA sampling running |
+| **Persona isolation tests** | Chat bleed-over evals per persona (Q-CHAT-1 per persona); memory isolation tests |
+| **Accounts** | Business Verification complete; staggered creation of IG accounts and bots |
 
-**Exit:** all MVP acceptance criteria met ([doc 11](11-mvp-acceptance-criteria.md)), followed by the public launch.
+## 5. Stage 3 — Ten personas (~5 weeks)
 
-## 6. Phase 4: Autonomy and optimization (months 4–6)
+| Workstream | Deliverables |
+|---|---|
+| **Personas 6–10** | Same onboarding path |
+| **Mode M** | Implemented and enabled **only if** the doc 13 §5.4 rule requires it; transitions validated (0 lost chat requests, measured switch time) |
+| **Autonomy** | Offers at L3 within caps; benign IG comment replies and spam hiding at L3 |
+| **Resilience** | Full-size restore drill with the real data volume; storage growth projection; thermal re-test |
+| **Staffing** | Reviewer and operator coverage sized from measured minutes per persona |
 
-- **Promote** specific action types to L3 by evidence: chat low-risk intents, benign comment replies, spam hiding, scheduled community posts, offers within caps.
-- Pricing and offer **experiments** (L2, Monetization agent).
-- Identity Tier B (LoRA) if the multi-reference pass rate is insufficient; video quality improvements; lip-sync.
-- **Onboard influencer #2** in the same workspace. This proves the multi-influencer path, with a target of < 2 weeks from persona approval to first publish.
-- Custom content requests (paid, SLA, human-approved); channel Direct Messages; local Bot API server for large videos.
-- Cost optimization from measured data: caching hit rate, allowance sizes, model per route.
+## 6. Stage 4 — 20 to 30 personas, in batches of five (~2–3 weeks each)
 
-## 7. Phase 5: Scale and SaaS (months 6–12)
+For each batch *n* (15, 20, 25, 30):
 
-- Multiple workspaces: self-serve onboarding, per-tenant SSO, quotas and billing. Meta **Advanced Access / App Review** for third-party accounts.
-- HA Postgres, read replica, and an event export to a warehouse for analytics.
-- **L4** for narrowly defined, well-measured actions (e.g. chat replies for established low-risk intents with continuous auto-demotion).
-- Durable workflow engine for long-running agent workflows, if justified.
-- Revenue diversification, which reduces Telegram concentration (P13). This requires revisiting "no public website".
+1. **Pre-check (projection).** The capacity snapshot projects the next batch at ≤ 85% of `G_day` (media) and observed peak `λ` ≤ 0.6 × `ρ·μ*` (chat), with tiers as planned. **If the projection fails, don't onboard.** Choose to lower tiers, pause, or start Stage 5.
+2. **Onboard** 5 personas (LoRA training campaign in Mode T windows).
+3. **Soak for 14 days**, then run mini-gate **G4.n** (doc 11).
+4. **Stop condition:** the first batch whose projection fails defines the measured `N_max` for the current tiers. This is reported to management with the options:
+   - (a) lower tiers;
+   - (b) fewer personas;
+   - (c) a second inference node.
+
+## 7. Stage 5 — Beyond 30, or higher availability (optional)
+
+- **Second inference node** (desktop or another workstation on the LAN): takes H/T classes; node 1 stays chat-first (doc 13 §10).
+- **Warm standby** with Postgres streaming replication and synced content store (doc 09 §9, decision D10).
+- Multi-workspace onboarding (already in the data model).
 
 ## 8. Critical path and dependencies
 
 | Dependency | Affects | Mitigation |
 |---|---|---|
-| Phase 0 verification spikes | Design details in C, D, E | Done first; the design has fallbacks for each |
-| Meta webhook access for non-role users | IG comments/DMs (Phase 3) | Not launch-blocking; App Review started in Phase 0 if needed |
-| Counsel deliverables (privacy policy, terms, crisis protocol, DPIA) | Closed beta and launch | Kicked off in week 1 |
-| Persona approval and calibration set | All content | Content lead starts in week 2 |
-| Conversation eval results | Model per route, free allowance, pricing | Eval suite built during Phase 2, not after |
-| Operator staffing | L2 chat during beta; crisis SLA | Hire or contract by week 10 |
+| Hardware meets doc 15 §4 (especially RAM for video offload) | Video feasibility, Mode M | Inventory in week 1; buy RAM/disks immediately if short |
+| Licence review (doc 15 §6) | Approval of every model | Started in Stage 0 week 1; excluded list avoids surprises |
+| Bake-off outcomes | All workflows, LoRA base choice | Done before persona onboarding scales. **Changing the base model later costs a LoRA retraining campaign for every persona.** |
+| LoRA training throughput (B-TRN-1) | Onboarding pace for Stages 2–4 | Mode T windows scheduled weekly; onboarding batches sized to training capacity |
+| Meta Business Verification | > 50 IG accounts as app roles; headroom for 30 | Started in Stage 0 |
+| Operator/reviewer staffing | L2 workloads; crisis SLA | Measured in Stage 1; hiring ahead of each stage |
+| Counsel deliverables | Beta and public launch | Kickoff in week 1 |
 
 ## 9. Team allocation (indicative)
 
-| Role | Phase 0 | Phase 1 | Phase 2 | Phase 3 |
-|---|---|---|---|---|
-| Eng lead (backend/infra) | Platform core, infra | Publishing, gateway | Payments, entitlements | Hardening, launch |
-| AI/backend engineer | Spikes | Content pipeline, validation, agent runner | Conversation pipeline, evals | Agents, QA sampling |
-| Full-stack/frontend (0.5–1) | Dashboard scaffold | Approval UI, content board | Operator console | KPI dashboards |
-| Content/persona lead | Persona brief | Character sheet, calibration, reviews | Conversation tone review | Beta content |
-| Operators/reviewers (part-time) | — | Reviews | Draft approvals (staging) | Beta operations |
-| Counsel / accountant (fractional) | Kickoff | Policies | DPIA, terms | Sign-off |
+| Role | Stage 0 | Stage 1 | Stages 2–4 |
+|---|---|---|---|
+| Eng 1 (platform/backend) | Platform core, queue, ops baseline, backups | Monetization, publishing, conversation orchestration | Multi-persona ops, autonomy promotion tooling, resilience |
+| Eng 2 (ML-ops/inference) | Workstation runtime, benchmark harness, bake-offs | Inference Host, arbiter, ComfyUI workflows, validators, LoRA pipeline | Training campaigns, Mode M (if needed), capacity tuning, re-benchmarks |
+| Content/persona lead | Image bake-off panels | Persona #1, calibration, reviews | Persona onboarding, tier management |
+| Reviewers/operators (part-time) | — | Beta L2 drafts, content reviews | Scaled by measured minutes |
+| Counsel / accountant (fractional) | Licences, DPIA, policies | Sign-off before beta | Quarterly reviews |

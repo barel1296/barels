@@ -1,6 +1,8 @@
 # 02 — Platform Capabilities: Verified vs. Assumed
 
-> Research date: **2026-10-14** · Status: Phase 1 input · **Re-verify every row marked E, R or A in Phase 0** (checklist in §8).
+> Research dates: **2026-10-14** (platforms, cloud vendors, law) and **2026-10-18** (local models, workstation operations, multi-account limits) · Status: planning input · **Re-verify every row marked E, R or A in Stage 0** (checklist in §8).
+>
+> **2026-10-18 scope update:** all AI inference is local on one workstation, and paid AI APIs are excluded. §3 (cloud AI vendors) is kept **as superseded history** for comparison. The local model stack and its licences are in [doc 15](15-local-model-stack.md). Platform facts (§1, §2, §4, §5) still apply, and §2.5 adds what changes when operating 30 personas from one host.
 
 ## How to read this document
 
@@ -34,8 +36,8 @@ Every claim carries an evidence tag:
 | **Standard Access** is enough when the app serves only accounts we own or manage and that have roles on the app. **Advanced Access** requires App Review and Business Verification. | Supported | E | One-influencer MVP: Standard Access. SaaS with third-party accounts: start Business Verification early. |
 | Graph API version: v26.0 (2026-07-29) | Current | E | Pin the API version per adapter; budget an upgrade roughly every 6 months. |
 | Long-lived user token lasts **60 days**. Refresh requires the token to be ≥24h old and unexpired. An expired token cannot be refreshed. | Supported | E | Token refresh job every ~30 days plus an expiry alert at T−10 days. A missed refresh forces a manual re-login. |
-| Scopes: `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_comments`, `instagram_business_manage_messages` | Supported | E | The exact insights scope name is unconfirmed (**A**). Verify it in Phase 0. |
-| **Webhook delivery for comments and DMs from the public under Standard Access** | Unclear | A | **Phase 0 blocker:** test with a non-role account. If it doesn't work, App Review is needed before IG engagement features launch. |
+| Scopes: `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_comments`, `instagram_business_manage_messages` | Supported | E | The exact insights scope name is unconfirmed (**A**). Verify it in Stage 0. |
+| **Webhook delivery for comments and DMs from the public under Standard Access** | Unclear | A | **Stage 0 blocker:** test with a non-role account. If it doesn't work, App Review is needed before IG engagement features launch. |
 
 ### 1.2 Content publishing
 
@@ -50,7 +52,7 @@ Every claim carries an evidence tag:
 | Media fetched by Meta from a **public URL** (`image_url`/`video_url`) | Supported | E | Use short-lived presigned R2 URLs. |
 | Resumable upload (`rupload.facebook.com`) with Instagram Login | Unclear | R | Don't depend on it. Use presigned URLs. |
 | `alt_text` (images), `collaborators` (≤3, not Stories), `cover_url`/`thumb_offset`, `location_id`, `user_tags`, `share_to_feed`, `trial_params` (trial Reels) | Supported | E | Exposed as optional publication settings. |
-| **`is_ai_generated` container parameter** (Meta "AI info" self-disclosure; not on carousel children) | Probably supported | E (single excerpt, corroborated by a third-party wrapper) | **Phase 0 blocker.** If confirmed, set it on every container. If not, disclose in the caption plus C2PA metadata, and a human applies the label in-app for photorealistic video. |
+| **`is_ai_generated` container parameter** (Meta "AI info" self-disclosure; not on carousel children) | Probably supported | E (single excerpt, corroborated by a third-party wrapper) | **Stage 0 blocker.** If confirmed, set it on every container. If not, disclose in the caption plus C2PA metadata, and a human applies the label in-app for photorealistic video. |
 | Profile-level **"AI-generated profile"** label (renamed 2026-08-31). Undisclosed AI profiles can be excluded from recommendations. | Exists (in-app) | R (press, no Meta primary source found) | Turn it on manually in the app at launch. No API found. |
 | Music library selection, interactive stickers (link/poll/location), filters, native scheduling | **Not supported / not found** | E (stickers), R (others, absence of evidence) | Reels use original or generated audio only. We schedule in our own system. Expect lower Reel reach than app-native posts; this is a known trade-off. |
 | Product tags and paid-partnership tags | Facebook Login only | E/R conflicting | Sponsored posts: disclose in the caption. Add the native tag after moving to Facebook Login if needed. |
@@ -123,7 +125,7 @@ Every claim carries an evidence tag:
 | `getMyStarBalance` | Supported | V | Balance snapshot for finance. |
 | **Bot Star subscriptions:** `createInvoiceLink` with `subscription_period = 2592000` (30 days, fixed), price ≤10,000 Stars; **link-only**; auto-renewed by Telegram | Supported | V | Core premium product rail. |
 | **`subscription` update (BotSubscriptionUpdated)**: states `canceled` / `active` / `failed` (Bot API 10.2) | Supported | V | Drives the subscription state machine (cancelled, payment-failed). |
-| Whether renewals trigger `pre_checkout_query` | Unclear | A | The handler accepts renewals for any active subscription order. Test in Phase 0. |
+| Whether renewals trigger `pre_checkout_query` | Unclear | A | The handler accepts renewals for any active subscription order. Test in Stage 0. |
 | `editUserStarSubscription(user_id, charge_id, is_canceled)` | Supported | V | Cancel renewal on refund, ban or erasure. |
 | **Channel subscription invite links** (`createChatSubscriptionInviteLink`, 30 days, 1–10,000 Stars) | Supported | V | **Not the primary rail:** the bot gets **no payment or renewal events**, revenue is not in the bot's ledger, and auto-removal on non-renewal is undocumented (A). Keep as an optional experiment. |
 | `sendPaidMedia`: any chat, including channels and business connections; 1–25,000 Stars; ≤10 items (photo, video, live photo); payload ≤128 bytes | Supported | V | PPV content. |
@@ -142,7 +144,7 @@ Every claim carries an evidence tag:
 | Any user can connect **one** business bot (Settings → Chat Automation); **Telegram Premium not required** since Bot API 10.0 | Supported | V | Module 5 = the persona's Telegram account plus our connected bot. |
 | `BusinessBotRights`: `can_reply` (only in private chats with incoming messages in the last 24h), `can_read_messages`, delete, edit name/bio/photo/username, gifts/stars, `can_manage_stories`, … | Supported | V | Request the minimum rights: `can_reply`, `can_read_messages`. |
 | Owner chooses which chats the bot covers and can pause it per chat | Supported | V | A human operates the account. The AI drafts in the dashboard (L2). |
-| Bot can send paid media and create invoice links on behalf of the business account | Supported | V | Phase 4+: offers from the personal account. |
+| Bot can send paid media and create invoice links on behalf of the business account | Supported | V | Stage 4+: offers from the personal account. |
 | Whether the counterpart sees a "bot" indicator | Unknown | A | Disclose explicitly in the bio and the first message regardless. |
 | Business-bot ToS: truthful representation; data used only for the service; **no sharing with third parties (including third-party APIs) without the user's authorization**; **never conceal activity** | Policy | V | **AI-processing consent is required before the AI reads a counterpart's messages.** Until then, human-only. |
 | **MTProto userbots** (automating a regular account via unofficial clients): such accounts are "put under observation"; flooding/spam → permanent ban; actions without the user's knowledge are forbidden | Prohibited/high risk | V | **Not used.** |
@@ -154,12 +156,12 @@ Every claim carries an evidence tag:
 | Using Telegram data for AI training **or deployment** requires the user's **explicit, informed, affirmative and continued consent**, limited to that chat | V | **Hard gate:** no AI processing of a fan's Telegram messages before `crm.consents(purpose='ai_processing')` is granted for that chat. Consent can be withdrawn at any time (`/stopai`). |
 | No training on Telegram data | V | Fan conversations are never used to fine-tune models. Evals use synthetic or explicitly consented data. |
 | ToS: no illegal pornographic content on publicly viewable channels/bots; Telegram removes porn bots to stay in the app stores; bot devs may not sell "questionable" goods | V (EU ToS) | Combined with Stars' app-store basis, **selling adult content for Stars is high-risk**. Not in the MVP. |
-| Telegram age verification exists at the platform level (via a special bot's Mini App) for sensitive content in some jurisdictions; **bots cannot read the result** | V | No platform age signal. Our own age assurance would need a third-party vendor (Phase 4+, only if ever needed). |
-| Channel Direct Messages (monoforum) and suggested posts; bots can reply with `can_manage_direct_messages`; the price for paid DMs is set by the admin (no Bot API setter) | V | Optional Phase 4 channel engagement. |
+| Telegram age verification exists at the platform level (via a special bot's Mini App) for sensitive content in some jurisdictions; **bots cannot read the result** | V | No platform age signal. Our own age assurance would need a third-party vendor (Stage 4+, only if ever needed). |
+| Channel Direct Messages (monoforum) and suggested posts; bots can reply with `can_manage_direct_messages`; the price for paid DMs is set by the admin (no Bot API setter) | V | Optional Stage 4 channel engagement. |
 
 ---
 
-## 3. AI vendors
+## 3. AI vendors — SUPERSEDED (cloud APIs excluded since 2026-10-18; see doc 15)
 
 ### 3.1 LLM (conversation and agents)
 
@@ -216,12 +218,29 @@ Every claim carries an evidence tag:
 
 ---
 
+### 2.5 Operating 30 personas from one workstation (research 2026-10-18)
+
+| Topic | Finding | Evidence | Design implication |
+|---|---|---|---|
+| Telegram ingestion without inbound ports | `getUpdates` long polling and webhooks are mutually exclusive. Updates are kept until confirmed, but **not longer than 24 h**. An update is confirmed by calling `getUpdates` with a higher offset. One consumer per token (a second gets 409). | V (Bot API 10.3 mirror) / R (409) | Long polling per bot; persist-then-advance offsets; advisory lock per token; alert well before 24 h of backlog (doc 09) |
+| Bots per BotFather account | ~20 bots per account is the usual figure; the limit is server-configured | R / E | Two company-controlled owner accounts for 30 bots |
+| Telegram user accounts (Business module) | A phone number is required. VoIP numbers are often rejected; Fragment +888 anonymous numbers exist (price unverified; some reported spam-blocked). | E / R | The Business account is **opt-in per persona**, not default for all 30 |
+| Instagram app roles under Standard Access | Accounts need roles on the app: **up to 50 testers**, or 500 combined for apps linked to a business-verified Business Manager | E | Complete **Meta Business Verification** before Stage 3 (> 10 personas leaves headroom) |
+| Many IG accounts, one operator | No numeric cap found. Meta targets "networks of inauthentic assets controlled by the same individual" and accounts acting "in concert" for fraud. | E | Transparent operator, AI labels on every account, **no cross-persona engagement automation**, no misleading identities (doc 03 P14) |
+| Meta webhook outage behavior | Messenger-platform docs: retries, alert after 15 min, and after **1 h** of failure the app is **unsubscribed** and must re-subscribe; 20 s delivery timeout. Third parties cite ~36 h retries. | E / R (conflict) | Auto-resubscribe job + backfill polling of comments (`GET /{media}/comments`) and conversations after any outage |
+| IG polling for backfill | Comments: ≤ 50 per page, top-level unless `replies` expanded, no time filter. Conversations API: Request-folder threads inactive > 30 days not returned. | E | Backfill covers recent media and conversations only; acceptable after short outages |
+| Cloudflare Tunnel / Access | Tunnel is outbound-only, free on all plans; 125 s proxy read timeout; 100 MB upload limit on free plans. Access Free: **50 users**. | V / E | Meta webhooks, signed media URLs (well under 100 MB) and the Access-protected dashboard all fit |
+| Tailscale | Free Personal plan is "only suitable for non-commercial use" | E | Not used for production admin access |
+| RTX 5090 Laptop GPU | 24 GB GDDR7, 256-bit, 896 GB/s; **TGP 95–150 W set by the laptop maker** (some chassis +25 W boost) | E / R | Performance is chassis-specific; desktop-5090 figures don't transfer; measure (doc 14) |
+| WSL2 GPU | Paravirtualized and shared dynamically with Windows apps (no partition). NVML limited in WSL. Windows drivers can spill CUDA allocations into system RAM unless "Prefer No Sysmem Fallback" is set. | E | Software VRAM budgets (doc 13); host-side telemetry; fail-loud OOM policy |
+| WSL lifetime | systemd services don't keep WSL alive; start-at-boot in session 0 is unreliable; a logon-triggered keep-alive is the reliable pattern | V / R | Auto-login + scheduled task + host watchdog (doc 09 §11) |
+
 ## 4. Payments beyond Telegram
 
 | Item | Status | Evidence | Implication |
 |---|---|---|---|
 | Fiat card payments for digital content consumed inside Telegram | **Not allowed** (Stars only) | V | Not in the MVP. |
-| Off-platform fiat (e.g. Stripe on our own web checkout) | Possible only outside Telegram's digital-goods flow; **conflicts with "no public website"**, so deferred | A | Phase 5 option to reduce platform concentration. |
+| Off-platform fiat (e.g. Stripe on our own web checkout) | Possible only outside Telegram's digital-goods flow; **conflicts with "no public website"**, so deferred | A | Stage 5 option to reduce platform concentration. |
 | Stars → fiat | Fragment → TON → exchange (KYC); 21-day hold | V/R | Treasury and tax process with an accountant (doc 03). |
 
 ---
@@ -245,7 +264,10 @@ Full analysis is in [03-risk-register.md](03-risk-register.md). **Not legal advi
 
 ## 6. What this means: the MVP scope boundary
 
-1. **The MVP is SFW.** Content rating ceiling: `suggestive` on every channel. `mature` exists in the model but is disabled by flag. `explicit` is not achievable on the current stack: it is prohibited or high-risk on Instagram, on Telegram/Stars, at every researched image and video vendor, and in the LLM vendor's usage policy, and it would require highly effective age assurance. An adult tier would be a **different product** with different vendors, legal review and likely different distribution. It is not a toggle.
+1. **The MVP is SFW.** Content rating ceiling: `suggestive` on every channel. `mature` exists in the model but is disabled by flag.
+   - `explicit` is prohibited or high-risk on Instagram and on Telegram/Stars, and it would require highly effective age assurance.
+   - **Local models remove the vendor usage policies but not those reasons.** They also remove vendor-side safety filters, so our own guards must be stronger, not weaker.
+   - An adult tier would be a **different product**, not a toggle.
 2. **Premium = exclusive SFW content and closeness**: premium channel, PPV sets in the bot, personalized (non-erotic) AI conversation credits.
 3. **Telegram consent gate before AI.** No AI reads a fan's message until explicit consent is recorded.
 4. **Instagram is top-of-funnel and must stay squeaky clean.** No adult CTAs; AI labels everywhere; Business account.
@@ -258,14 +280,15 @@ Full analysis is in [03-risk-register.md](03-risk-register.md). **Not legal advi
 | Module | Depends on (evidence) |
 |---|---|
 | C. Publishing | IG publishing (E), Telegram channel posting (V), quota endpoint (E), `is_ai_generated` (E, unconfirmed) |
-| D. Conversation | Telegram bot webhooks (V), IG messaging window (E), Business bots (V), Claude API (V), consent rules (V) |
+| D. Conversation | Telegram long polling (V), IG messaging window (E), Business bots (V), **local LLM + guard (doc 15)**, consent rules (V) |
 | E. Monetization | Stars invoices and subscriptions (V), `subscription` updates (V), paid media (V), refunds (V), transactions (V) |
 | G. Analytics | IG insights (E), Telegram counts only (V/A), internal events (A: ours) |
-| B. Content | FLUX.2 / Nano Banana / Veo / Kling (E), C2PA (E), Rekognition (E) |
+| B. Content | **Local ComfyUI stack (doc 15):** licence-clean image/edit/video models, persona LoRAs, local validators, local C2PA signing |
+| Inference (platform) | WSL2 GPU sharing (E), engine capabilities (V), model licences (V/E/R) |
 
 ---
 
-## 8. Phase 0 verification checklist (must read live primary docs)
+## 8. Stage 0 verification checklist (must read live primary docs)
 
 | # | Item | Why it matters | Owner |
 |---|---|---|---|
@@ -276,8 +299,12 @@ Full analysis is in [03-risk-register.md](03-risk-register.md). **Not legal advi
 | 5 | Telegram `core.telegram.org/bots/payments-stars` full read: invoice min/max, renewal flow, test environment for Stars | Payments | Eng |
 | 6 | Whether bot subscription renewals send `pre_checkout_query` | Pre-checkout handler | Eng (test env) |
 | 7 | Business bot: what the counterpart sees | Disclosure UX | Eng |
-| 8 | BFL licensing for LoRA-on-fal outputs; FLUX.2 [klein] fine-tune terms | Identity adapter choice | Legal + Eng |
-| 9 | Each vendor's current usage policy on "suggestive" (swimwear, fitness, lingerie) | Provider eligibility table | Compliance |
-| 10 | Vendor prices (price-book rows need a `source_url` and a verifier) | Cost model | Finance |
+| 8 | ~~BFL licensing for LoRA-on-fal outputs~~ → **Licence texts for the local stack** (doc 15 §6 L1–L6) | Commercial use of every approved model | Legal |
+| 9 | ~~Vendor usage policies~~ → local models have none; **our** content policy is enforced by validators (doc 07 W2) | — | Compliance |
+| 10 | ~~Vendor prices~~ → **measured operating costs** (doc 12) | Cost model | Finance |
 | 11 | SB 243 / NY Art. 47 exact text; WA/OR effective requirements; EU Art. 50 guidelines | Disclosure cadence, crisis protocol | Counsel |
-| 12 | Render, Postgres and Valkey pricing (infra research could not reach the pricing pages) | Infra budget | Eng |
+| 12 | ~~Render/Valkey pricing~~ (cloud hosting dropped) | — | — |
+| 13 | Workstation specifics: RAM ceiling, NVMe slots, BIOS auto-power-on, Advanced Optimus/MUX, OEM TGP setting | Capacity (doc 15 §4), resilience | Eng |
+| 14 | WSL2: "Prefer No Sysmem Fallback" effect on WSL processes; NVML metrics available in WSL vs. host | Fail-loud OOM, telemetry | Eng |
+| 15 | BotFather bot limit per owner; Instagram app-role limit and Business Verification status | 30-persona account plan | Eng/Ops |
+| 16 | Meta webhook behavior on outage (1 h unsubscribe vs. longer retries): test with a controlled outage in staging | Recovery design | Eng |

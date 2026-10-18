@@ -1,11 +1,20 @@
 # 05 — Data Model
 
-> Status: Proposed · Reference DDL: [`schema/schema.sql`](schema/schema.sql). It was applied cleanly to PostgreSQL 16, and its invariants were smoke-tested (see §4).
+> Status: Proposed — **revised 2026-10-18 for the single-workstation, local-inference MVP** · Reference DDL: [`schema/schema.sql`](schema/schema.sql), applied cleanly to PostgreSQL 16 · Invariant tests: [`schema/invariants_test.sql`](schema/invariants_test.sql) (§4)
 
 ## 1. Principles
 
-1. **Postgres is the system of record.** Redis holds only reconstructible state: queues, rate-limit buckets, locks, caches. Losing Redis loses no business facts. Jobs are re-derived from DB state by the sweepers.
-2. **One schema per module.** `core`, `identity`, `content`, `publishing`, `conversation`, `crm`, `monetization`, `analytics`, `agents`, `approvals`. Cross-schema foreign keys point only at stable roots: workspace, user, influencer, fan, channel and media asset.
+1. **Postgres is the system of record *and* the persistent job queue.** There is no Redis.
+   - Jobs are rows, claimed with `FOR UPDATE SKIP LOCKED` (doc 04 §2).
+   - GPU work lives in `inference.gpu_jobs`.
+   - Pull cursors (Telegram offsets, backfills) live in `core.poll_cursors`.
+   - Daily allowances live in `monetization.daily_allowances`.
+   - Enqueueing a job is part of the same transaction as the business change that causes it.
+2. **One schema per module.** `core`, `identity`, `content`, `publishing`, `conversation`, `crm`, `monetization`, `analytics`, `agents`, `approvals`, plus two **platform-level** schemas:
+   - `inference`: model registry, licenses, ComfyUI workflows, GPU nodes/modes/jobs;
+   - `ops`: benchmarks, capacity snapshots, telemetry rollups, energy and the cost ledger.
+
+   Cross-schema foreign keys point only at stable roots: workspace, user, influencer, fan, channel, media asset and model.
 3. **Tenant column everywhere.** `workspace_id` on every tenant row, plus Row-Level Security policies. `influencer_id` wherever data belongs to a persona.
 4. **Immutable facts and mutable projections.** The following are append-only:
    - payments
@@ -19,7 +28,11 @@
    Their current state is projected into mutable tables: subscriptions, entitlements, balances and daily KPIs.
 5. **Bind approvals to bytes.** Approvals reference `payload_hash` and `content_hash`. A publication cannot reach `scheduled` without an `authorized_content_hash`, which is enforced by a CHECK constraint.
 6. **Money.** Telegram Stars are `bigint` whole units. Fiat is `numeric`, and is labelled an estimate unless it comes from `monetization.payouts`.
-7. **Large payloads go to object storage.** Rows keep `*_ref` pointers to raw provider payloads, LLM transcripts and media.
+7. **Large payloads go to the local content store**, a content-addressed directory tree on the data NVMe, backed up offsite (doc 09 §9). Rows keep `*_ref` / `storage_key` pointers to media, LLM transcripts and raw payloads.
+8. **Measured before used.** These rows can't be activated without measured values, enforced by CHECK constraints:
+   - models (licence must be reviewed and commercial: trigger);
+   - workflows (measured peak VRAM);
+   - GPU modes (all budgets measured).
 
 ## 2. Entity overview
 
@@ -54,6 +67,14 @@ erDiagram
   AGENT_RUN ||--o{ ACTION_PROPOSAL : emits
   ACTION_PROPOSAL ||--o| APPROVAL_REQUEST : "may require"
   APPROVAL_REQUEST ||--o{ APPROVAL_DECISION : decided
+  INFLUENCER ||--|| PERSONA_RUNTIME_CONFIG : "tier · quotas · workflows"
+  LICENSE ||--o{ MODEL : governs
+  MODEL ||--o{ WORKFLOW : "required by"
+  WORKFLOW ||--o{ GPU_JOB : "executed as"
+  GENERATION_JOB ||--o| GPU_JOB : "runs on"
+  GPU_NODE ||--o{ GPU_JOB : leases
+  GPU_NODE ||--o{ GPU_MODE : "configured modes"
+  BENCHMARK_RUN }o--|| ENV_FINGERPRINT : "measured in"
 ```
 
 ### Module tables at a glance
@@ -70,6 +91,16 @@ erDiagram
 | `analytics` | metric_snapshots (partitioned), events (partitioned), price_book, usage_events (partitioned), budgets, daily_influencer_kpis, experiments, experiment_assignments | Cost per influencer comes from `usage_events` |
 | `agents` | agent_definitions, autonomy_policies, tasks, runs, run_steps, action_proposals, eval_runs | Every decision is traceable |
 | `approvals` | approval_requests, approval_decisions, qa_reviews, incidents, takedown_requests | Approvals bind to hashes |
+| `inference` (platform) | licenses, models, workflows, gpu_nodes, gpu_modes, mode_transitions, gpu_jobs | Licence-gated model approval; persistent GPU queue (doc 13) |
+| `ops` (platform) | environment_fingerprints, benchmark_runs, capacity_snapshots, gpu_daily, energy_readings, cost_entries | Every capacity and cost figure traces to a measurement (docs 12, 14) |
+
+Also new or changed in tenant schemas:
+
+- `identity.persona_runtime_config`: per-persona tier, GPU quota, reply allowances, workflows, rollout stage, pause flag.
+- `core.poll_cursors`
+- `monetization.daily_allowances`
+- `content.generation_jobs.gpu_job_id` / `gpu_seconds` / `energy_wh`
+- `core.integration_accounts.wrapping_key_id`, which records the local master key, not a cloud KMS key.
 
 ## 3. State machines
 
@@ -137,7 +168,7 @@ Each transition updates the linked entitlement(s) in the **same transaction**. I
 
 `pending → approved | rejected | changes_requested | expired | cancelled | superseded`. An edit never changes an approved payload. It creates a new revision and a new request, and the old request is marked `superseded`.
 
-## 4. Invariants enforced in the database (smoke-tested)
+## 4. Invariants enforced in the database (tested: [`schema/invariants_test.sql`](schema/invariants_test.sql))
 
 | # | Invariant | Mechanism | Test result |
 |---|---|---|---|
@@ -151,6 +182,11 @@ Each transition updates the linked entitlement(s) in the **same transaction**. I
 | I8 | One live subscription per fan per product | Partial unique index | Constraint present |
 | I9 | Credit balances never negative; credit debits idempotent per message | CHECK + UNIQUE `idempotency_key` | Constraint present |
 | I10 | Active products, personas, policies and agent definitions must have an approver | CHECK constraints | Constraint present |
+| I11 | A model can be approved only under a **reviewed licence that permits commercial use of weights and outputs** | Trigger `inference.assert_model_license` | ✅ rejected (non-commercial and unreviewed) |
+| I12 | A GPU mode can't be activated with unmeasured budgets | CHECK on `inference.gpu_modes` | ✅ rejected |
+| I13 | A ComfyUI workflow can't be approved without a measured peak VRAM | CHECK on `inference.workflows` | ✅ rejected |
+| I14 | GPU jobs are idempotent | UNIQUE `idempotency_key` | ✅ rejected duplicate |
+| I15 | Reply allowances are consumed atomically and never exceed the limit | Conditional `UPDATE … WHERE used < daily_limit` | ✅ second consume returns 0 rows |
 
 Application-level invariants that the DB doesn't enforce get property-based tests (doc 09 §7). Examples:
 
@@ -160,8 +196,9 @@ Application-level invariants that the DB doesn't enforce get property-based test
 
 ## 5. Indexing and partitioning
 
-- **Partitioned monthly** (high-volume, append-mostly): `core.audit_log`, `conversation.messages`, `analytics.events`, `analytics.metric_snapshots`, `analytics.usage_events`. A maintenance job creates partitions 3 months ahead and moves cold partitions to object storage (Parquet) after the retention window.
+- **Partitioned monthly** (high-volume, append-mostly): `core.audit_log`, `conversation.messages`, `analytics.events`, `analytics.metric_snapshots`, `analytics.usage_events`. A maintenance job creates partitions 3 months ahead, and exports cold partitions to compressed Parquet in the local archive volume (then offsite backup) after the retention window.
 - **Hot-path indexes:**
+  - GPU scheduler: `gpu_jobs` ready queue `(job_class, priority, due_at) WHERE status='queued'`, plus in-flight heartbeats
   - due publications: partial index on `scheduled_for WHERE status='scheduled'`
   - pending outbox: `WHERE dispatched_at IS NULL`
   - active entitlement checks: `(fan_id, kind, resource_id) WHERE status='active'`
@@ -169,7 +206,8 @@ Application-level invariants that the DB doesn't enforce get property-based test
   - open escalations by severity and SLA
   - approval queue
 - **Dedup across partitions:** `conversation.message_external_ids`, because unique constraints on partitioned tables must include the partition key.
-- **Vector search:** not in the MVP. Memory is small structured facts plus summaries. Add `pgvector` when memory retrieval measurably needs semantic recall.
+- **Vector search:** `pgvector` is installed but used only if the Stage-1 memory evals show structured facts plus summaries are insufficient. Embeddings come from the local embedding model (doc 15).
+- **Queue tables under load:** job tables are append/update-heavy. Succeeded jobs older than 7 days are moved to an archive table nightly, keeping the hot queue small. Autovacuum is tuned per table.
 
 ## 6. Data classification and retention
 
@@ -182,7 +220,9 @@ Application-level invariants that the DB doesn't enforce get property-based test
 | **Financial records** | Payments, refunds, payouts, ledger | `monetization.*` | Statutory period (assume 7–10 years; confirm with accountant). Fan reference pseudonymized on erasure. |
 | **Audit** | Audit log, approvals | `core.audit_log`, `approvals.*` | 7 years; sealed and exported to WORM storage |
 | **Raw webhooks** | Platform payloads | `core.inbound_webhooks` | 30 days |
-| **Generated media** | Images, videos | R2 + `content.media_assets` | Published: indefinitely. Rejected candidates: 90 days. |
+| **Generated media** | Images, videos | Local content store (data NVMe) + `content.media_assets`; offsite encrypted backup of published and approved assets | Published: indefinitely. Rejected candidates: 30 days (storage pressure is real on one machine; doc 13 §7). |
+| **Model weights** | Base models, persona LoRAs | Local model volume; LoRAs also backed up offsite | Base models: re-downloadable (pinned hash). LoRAs and character sheets: indefinitely (irreplaceable brand assets). |
+| **Benchmarks / telemetry** | `ops.*`, raw bench results, Prometheus | Local | Benchmark runs: indefinitely. Raw telemetry: 30 days. Daily rollups: indefinitely. |
 | **Analytics events** | Funnel events (pseudonymous) | `analytics.events` | 25 months |
 | **Usage/cost** | `usage_events` | `analytics.usage_events` | 7 years (finance) |
 
@@ -195,8 +235,8 @@ Triggered by `/deletemydata` in the bot, by an operator recording a DSR, or by a
 3. Delete message bodies, summaries, memories, consents (keep a minimal consent-withdrawal proof), segment memberships, experiment assignments and link tokens.
 4. Pseudonymize financial rows: keep the payment facts, replace the fan reference with a tombstone id, and drop usernames.
 5. Set `crm.fans.status = 'erased'` and null out identifying fields. Keep `fan_identities` only as a salted hash to block silent re-linking. The fan can start fresh, but data doesn't reattach.
-6. Remove the fan from analytics events (`fan_id` → NULL) and from object-store transcripts.
-7. Backups age out under the backup retention window (35 days), which is documented in the privacy policy.
+6. Remove the fan from analytics events (`fan_id` → NULL) and from the transcript files in the local content store.
+7. Backups age out under the backup retention window (35 days, local and offsite), which is documented in the privacy policy.
 8. Audit-log the action without the deleted content, and close the DSR.
 
 ## 8. Migration and evolution rules
