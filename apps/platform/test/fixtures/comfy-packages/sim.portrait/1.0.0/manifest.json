@@ -1,0 +1,39 @@
+{
+  "contract_version": "1.0",
+  "workflow_key": "sim.portrait",
+  "version": "1.0.0",
+  "task": "generate_image",
+  "title": "TEST FIXTURE: persona portrait package for the simulated ComfyUI",
+  "description": "Test fixture for the ComfyUI bridge. Real workflow packages are supplied by Track A; this one only runs against the simulated ComfyUI.",
+  "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["scene", "aspect_ratio"],
+    "properties": {
+      "scene": { "type": "string", "minLength": 1, "maxLength": 500 },
+      "mood": { "type": "string", "maxLength": 200 },
+      "aspect_ratio": { "type": "string", "enum": ["1:1", "4:5", "9:16"] },
+      "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+    }
+  },
+  "references": {
+    "persona_identity": { "required": true },
+    "assets": { "roles": [], "min": 0, "max": 0 },
+    "adapters": { "kinds": ["lora"], "max": 1 }
+  },
+  "outputs": { "kind": "image", "mime_types": ["image/png"], "count": { "min": 1, "max": 4, "default": 1 } },
+  "resources": {
+    "gpu_required": true,
+    "vram_mb_peak": null,
+    "est_seconds_p50": null,
+    "est_seconds_p95": null,
+    "measured_on": null,
+    "preemptible": true,
+    "default_priority": "scheduled_image"
+  },
+  "timeouts": { "max_runtime_s": 120 },
+  "quality": { "qa_checks": [] },
+  "provenance": { "c2pa": "none" },
+  "deprecated": false,
+  "sunset_at": null
+}

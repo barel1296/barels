@@ -1,0 +1,69 @@
+{
+  "parameters": {
+    "scene": [
+      {
+        "node": "99",
+        "input": "text",
+        "template": "photo of the persona, {scene}, {mood}"
+      }
+    ],
+    "aspect_ratio": [
+      {
+        "node": "5",
+        "input": "width",
+        "map": {
+          "1:1": 1024,
+          "4:5": 896,
+          "9:16": 768
+        },
+        "type": "integer"
+      },
+      {
+        "node": "5",
+        "input": "height",
+        "map": {
+          "1:1": 1024,
+          "4:5": 1120,
+          "9:16": 1344
+        },
+        "type": "integer"
+      }
+    ]
+  },
+  "references": {
+    "face": [
+      {
+        "node": "11",
+        "input": "image"
+      }
+    ]
+  },
+  "adapters": [
+    {
+      "node": "10",
+      "input": "lora_name",
+      "weight_inputs": [
+        "strength_model",
+        "strength_clip"
+      ]
+    }
+  ],
+  "seed": [
+    {
+      "node": "3",
+      "input": "seed"
+    }
+  ],
+  "output_count": [
+    {
+      "node": "5",
+      "input": "batch_size"
+    }
+  ],
+  "outputs": [
+    {
+      "node": "9",
+      "kind": "image"
+    }
+  ]
+}
