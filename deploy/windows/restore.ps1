@@ -26,6 +26,8 @@ param(
   [ValidateSet('Test', 'Replace')][string]$Mode = 'Test',
   [string]$PgAdminUrl,
   [switch]$Force,
+  # Unattended Replace (automation, drills): the database name, instead of typing it at the prompt.
+  [string]$ConfirmDatabase,
   [switch]$KeepDatabase,
   [switch]$NoRecord
 )
@@ -42,9 +44,6 @@ Write-Step 'Verifying the backup'
 if ((Get-FileSha256 $dump) -ne $m.database.sha256) { Fail 'db.dump checksum does not match the manifest' }
 Write-Ok 'db.dump checksum matches'
 
-$psql = Find-PgTool 'psql'
-$pgRestore = Find-PgTool 'pg_restore'
-if (-not $psql -or -not $pgRestore) { Fail 'psql/pg_restore (PostgreSQL 16 client tools) not found' }
 $app = ConvertFrom-PgUrl (Get-EnvValue $cfg 'MIGRATION_DATABASE_URL')
 if (-not $PgAdminUrl) {
   $su = Read-Host 'PostgreSQL superuser name'
@@ -53,6 +52,11 @@ if (-not $PgAdminUrl) {
   $PgAdminUrl = "postgres://$([System.Uri]::EscapeDataString($su)):$([System.Uri]::EscapeDataString($plain))@$($app.Host):$($app.Port)/postgres"
 }
 $admin = ConvertFrom-PgUrl $PgAdminUrl
+$major = Get-PgServerMajor $admin
+$psql = Find-PgTool 'psql' $major
+$pgRestore = Find-PgTool 'pg_restore' $major
+if (-not $psql -or -not $pgRestore) { Fail 'psql/pg_restore (PostgreSQL 16 client tools) not found' }
+Write-Note "server major $major; using $pgRestore"
 function Invoke-AdminSql([string]$Sql, [string]$Database = 'postgres') {
   $env:PGPASSWORD = $admin.Password
   try {
@@ -89,6 +93,7 @@ SELECT json_build_object(
 $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $run = [ordered]@{ started_at = (Get-Date).ToString('o'); finished_at = $null; status = 'running'; location = $BackupDir; error = $null; mode = $Mode; checks = $null; backup_manifest = $m }
 $kind = if ($Mode -eq 'Test') { 'restore_test' } else { 'restore' }
+$blocked = $false
 try {
   if ($Mode -eq 'Test') {
     $target = "$($app.Database)_restore_$stamp"
@@ -99,15 +104,29 @@ try {
     if (-not $KeepDatabase) { Invoke-AdminSql "DROP DATABASE `"$target`"" | Out-Null; Write-Ok "dropped $target" } else { Write-Note "kept $target for inspection" }
   } else {
     if (-not $Force) { Fail 'Replace mode needs -Force' }
-    $confirm = Read-Host "Type the database name ($($app.Database)) to replace it with the backup from $($m.started_at)"
+    $confirm = if ($ConfirmDatabase) { $ConfirmDatabase } else { Read-Host "Type the database name ($($app.Database)) to replace it with the backup from $($m.started_at)" }
     if ($confirm -ne $app.Database) { Fail 'confirmation did not match' }
     if ($script:IsWin) {
       foreach ($t in @('GoldenInfluencer-Platform', 'GoldenInfluencer-ComfyBridge')) { Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue }
-      Write-Ok 'platform tasks stopped'
+      $leftovers = Stop-InstallProcesses $envPath
+      Write-Ok "platform tasks stopped ($leftovers leftover process(es) ended)"
+    } else {
+      Write-Note 'not Windows: stop the platform and bridge yourself before Replace'
     }
+    # No new connections from here on (a process that is still running cannot reconnect mid-restore).
+    Invoke-AdminSql "ALTER DATABASE `"$($app.Database)`" WITH ALLOW_CONNECTIONS false" | Out-Null
+    $blocked = $true
     Invoke-AdminSql "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$($app.Database)' AND pid <> pg_backend_pid()" | Out-Null
+    # Terminated sessions take a moment to go away; RENAME fails while any is left.
+    for ($i = 0; $i -lt 40; $i++) {
+      $left = [int]("$(Invoke-AdminSql "SELECT count(*) FROM pg_stat_activity WHERE datname = '$($app.Database)' AND pid <> pg_backend_pid()")".Trim())
+      if ($left -eq 0) { break }
+      Start-Sleep -Milliseconds 250
+    }
     $previous = "$($app.Database)_before_restore_$stamp"
     Invoke-AdminSql "ALTER DATABASE `"$($app.Database)`" RENAME TO `"$previous`"" | Out-Null
+    $blocked = $false
+    Invoke-AdminSql "ALTER DATABASE `"$previous`" WITH ALLOW_CONNECTIONS true" | Out-Null
     Write-Ok "current database kept as $previous (drop it once the restore is confirmed)"
     Restore-Into $app.Database
     $run.checks = Get-Checks $app.Database
@@ -128,6 +147,10 @@ try {
   $run.status = 'failed'
   $run.error = $_.Exception.Message
   Write-Warn2 $run.error
+  if ($blocked) {
+    # The rename did not happen: make the current database usable again.
+    try { Invoke-AdminSql "ALTER DATABASE `"$($app.Database)`" WITH ALLOW_CONNECTIONS true" | Out-Null; Write-Note "$($app.Database) accepts connections again" } catch { Write-Warn2 "could not re-allow connections to $($app.Database): $($_.Exception.Message)" }
+  }
 } finally {
   $run.finished_at = (Get-Date).ToString('o')
   $out = Join-Path $BackupDir "$kind-$stamp.json"

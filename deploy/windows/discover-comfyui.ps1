@@ -110,7 +110,7 @@ if ($null -eq $report.selected) {
       try {
         Push-Location (Get-PlatformDir)
         try {
-          & node "--env-file=$envPath" (Join-Parts @('dist', 'src', 'comfy-bridge', 'main.js')) check-packages --url $report.selected.url --packages $pk | Out-File -FilePath $tmp -Encoding utf8
+          & (Get-NodeExe $cfg) "--env-file=$envPath" (Join-Parts @('dist', 'src', 'comfy-bridge', 'main.js')) check-packages --url $report.selected.url --packages $pk | Out-File -FilePath $tmp -Encoding utf8
           $code = $LASTEXITCODE
         } finally { Pop-Location }
         $report.packages = Get-Content $tmp -Raw | ConvertFrom-Json

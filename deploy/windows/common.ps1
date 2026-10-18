@@ -101,15 +101,24 @@ function New-UrlSafeToken([int]$Bytes = 32) {
   return (New-Secret $Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
 }
 
+# The Node.js executable recorded by install.ps1 (NODE_EXE), so services and scripts use the version
+# that was checked even when the service account's PATH differs; falls back to PATH.
+function Get-NodeExe($Map) {
+  $n = Get-EnvValue $Map 'NODE_EXE'
+  if ($n -and (Test-Path -LiteralPath $n)) { return $n }
+  return 'node'
+}
+
 # Runs a built platform entry point with the env file: node --env-file=<file> dist/src/<script> <args>.
 # Its output goes to the console (never into the caller's pipeline); returns only the exit code.
 function Invoke-Platform([string]$EnvFile, [string]$Script, [string[]]$Arguments = @(), [switch]$AllowFailure) {
   $platform = Get-PlatformDir
   $entry = Join-Parts @($platform, 'dist', 'src', $Script)
   if (-not (Test-Path $entry)) { Fail "$entry not found; run the build (install.ps1, or npm run build in apps/platform)" }
+  $node = Get-NodeExe (Read-EnvFile $EnvFile)
   Push-Location $platform
   try {
-    & node "--env-file=$EnvFile" $entry @Arguments | Out-Host
+    & $node "--env-file=$EnvFile" $entry @Arguments | Out-Host
     $code = $LASTEXITCODE
   } finally { Pop-Location }
   if ($code -ne 0 -and -not $AllowFailure) { Fail "node $Script $($Arguments -join ' ') exited with $code" }
@@ -127,7 +136,13 @@ function Invoke-Http([string]$Url, [hashtable]$Headers = @{}, [int]$TimeoutSec =
   } catch {
     $status = $null
     try { $status = [int]$_.Exception.Response.StatusCode } catch { $status = $null }
-    return [pscustomobject]@{ ok = $false; status = $status; json = $null; error = $_.Exception.Message }
+    # The API's error body ({"error":{"code","message"}}) says why; keep it.
+    $message = $_.Exception.Message
+    if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+      $message = $_.ErrorDetails.Message
+      try { $e = ($_.ErrorDetails.Message | ConvertFrom-Json).error; if ($e) { $message = "$($e.code): $($e.message)" } } catch { }
+    }
+    return [pscustomobject]@{ ok = $false; status = $status; json = $null; error = $message }
   }
 }
 
@@ -161,20 +176,62 @@ function ConvertFrom-PgUrl([string]$Url) {
   }
 }
 
-function Find-PgTool([string]$Name) {
-  $cmd = Get-Command $Name -ErrorAction SilentlyContinue
-  if ($cmd) { return $cmd.Source }
+# Every installed copy of a PostgreSQL client tool: PATH first, then Program Files\PostgreSQL\<version>\bin.
+function Get-PgToolCandidates([string]$Name) {
+  $found = New-Object System.Collections.Generic.List[string]
+  foreach ($cmd in @(Get-Command $Name -All -CommandType Application -ErrorAction SilentlyContinue)) { if (-not $found.Contains($cmd.Source)) { $found.Add($cmd.Source) } }
   if ($script:IsWin) {
     foreach ($base in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
       if (-not $base) { continue }
-      $candidates = Get-ChildItem -Path (Join-Path $base 'PostgreSQL') -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending
-      foreach ($c in $candidates) {
+      foreach ($c in @(Get-ChildItem -Path (Join-Path $base 'PostgreSQL') -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending)) {
         $exe = Join-Parts @($c.FullName, 'bin', "$Name.exe")
-        if (Test-Path $exe) { return $exe }
+        if ((Test-Path $exe) -and -not $found.Contains($exe)) { $found.Add($exe) }
       }
     }
   }
-  return $null
+  return $found.ToArray()
+}
+
+function Get-PgToolMajor([string]$Exe) {
+  $v = "$(Invoke-Tolerant { & $Exe --version 2>$null })"
+  if ($v -match '(\d+)\.\d+') { return [int]$Matches[1] }
+  return 0
+}
+
+# A client tool for a server of major version $ServerMajor: the same major if installed, else the
+# nearest newer one (an older pg_dump refuses a newer server; a newer pg_restore can emit settings an
+# older server rejects). Without $ServerMajor: the first one found.
+function Find-PgTool([string]$Name, [int]$ServerMajor = 0) {
+  $all = @(Get-PgToolCandidates $Name)
+  if ($all.Count -eq 0) { return $null }
+  if ($ServerMajor -le 0) { return $all[0] }
+  $tools = @($all | ForEach-Object { [pscustomobject]@{ path = $_; major = (Get-PgToolMajor $_) } })
+  $same = @($tools | Where-Object { $_.major -eq $ServerMajor })
+  if ($same.Count) { return $same[0].path }
+  $newer = @($tools | Where-Object { $_.major -gt $ServerMajor } | Sort-Object major)
+  if ($newer.Count) { return $newer[0].path }
+  return $all[0]
+}
+
+# Major version of the server behind a ConvertFrom-PgUrl connection (0 if it cannot be read).
+function Get-PgServerMajor($Conn) {
+  $psql = Find-PgTool 'psql'
+  if (-not $psql) { return 0 }
+  $env:PGPASSWORD = $Conn.Password
+  try {
+    $n = "$(Invoke-Tolerant { & $psql --no-psqlrc -At --host $Conn.Host --port $Conn.Port --username $Conn.User --dbname $Conn.Database -c 'SHOW server_version_num' 2>$null })".Trim()
+  } finally { Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue }
+  if ($n -match '^\d+$') { return [int][math]::Floor([int]$n / 10000) }
+  return 0
+}
+
+# Stops node processes started with this env file (platform, bridge): stopping a scheduled task can
+# leave its child process running. Windows only (uses the process command lines).
+function Stop-InstallProcesses([string]$EnvPath) {
+  if (-not $script:IsWin) { return 0 }
+  $procs = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($EnvPath) })
+  foreach ($p in $procs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+  return $procs.Count
 }
 
 function Restrict-FileToOwner([string]$Path) {

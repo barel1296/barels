@@ -37,10 +37,12 @@ $manifest = [ordered]@{ started_at = (Get-Date).ToString('o'); finished_at = $nu
 try {
   # --- Database --------------------------------------------------------------------
   Write-Step 'Dumping the database'
-  $pgDump = Find-PgTool 'pg_dump'
-  $pgRestore = Find-PgTool 'pg_restore'
-  if (-not $pgDump -or -not $pgRestore) { Fail 'pg_dump/pg_restore (PostgreSQL 16 client tools) not found' }
   $conn = ConvertFrom-PgUrl (Get-EnvValue $cfg 'MIGRATION_DATABASE_URL')
+  $major = Get-PgServerMajor $conn
+  $pgDump = Find-PgTool 'pg_dump' $major
+  $pgRestore = Find-PgTool 'pg_restore' $major
+  if (-not $pgDump -or -not $pgRestore) { Fail 'pg_dump/pg_restore (PostgreSQL 16 client tools) not found' }
+  Write-Note "server major $major; using $pgDump"
   $dump = Join-Path $dir 'db.dump'
   $env:PGPASSWORD = $conn.Password
   try {

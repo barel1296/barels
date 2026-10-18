@@ -36,6 +36,8 @@ if ($Remove) {
       Write-Ok "removed $($t.Name)"
     }
   }
+  $n = Stop-InstallProcesses (Resolve-EnvFile '' $InstallRoot)
+  if ($n) { Write-Ok "$n leftover process(es) ended" }
   return
 }
 

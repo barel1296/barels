@@ -45,7 +45,7 @@ if ($mt) {
 # Detailed component report from the platform (database, migrations, engines, LLM, jobs, backups).
 try {
   Push-Location (Get-PlatformDir)
-  try { $raw = Invoke-Tolerant { & node "--env-file=$envPath" (Join-Parts @('dist', 'src', 'cli.js')) health 2>$null | Out-String } } finally { Pop-Location }
+  try { $raw = Invoke-Tolerant { & (Get-NodeExe $cfg) "--env-file=$envPath" (Join-Parts @('dist', 'src', 'cli.js')) health 2>$null | Out-String } } finally { Pop-Location }
   $h = $raw | ConvertFrom-Json
   foreach ($p in $h.components.PSObject.Properties) {
     $st = [string]$p.Value.status

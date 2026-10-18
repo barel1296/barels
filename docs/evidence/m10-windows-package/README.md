@@ -50,3 +50,5 @@ Secrets in the output are replaced with `<redacted>`: the owner API token, the T
 | The restored database never contains the record of the backup it came from | `BACKUP_STALE` right after a successful recovery | Replace mode re-records the source backup |
 | ComfyUI `system_stats` fields vary by version (strict mode) | Discovery could fail on older ComfyUI builds | `Get-Prop` for every optional field |
 | The integration run called itself REAL even against simulators | Simulated evidence could be mistaken for acceptance | Simulator detection; `acceptance_evidence: false` |
+| A client that is still connected or reconnecting made Replace fail at the rename (found after this evidence run) | Recovery fails if a service is not fully stopped | `ALLOW_CONNECTIONS false`, then terminate, wait, rename; leftover `node.exe` of this install is stopped; connections are re-allowed on failure |
+| `pg_dump`/`pg_restore` were taken from PATH whatever their version (found after this evidence run) | With several PostgreSQL versions installed, backups or restores fail on a version mismatch | Tools are chosen by the server's major version |

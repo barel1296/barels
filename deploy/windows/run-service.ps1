@@ -23,7 +23,7 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $log = Join-Path $logDir ("{0}-{1}.log" -f $Service, (Get-Date -Format 'yyyyMMdd'))
 
 $platform = Get-PlatformDir
-$exe = 'node'
+$exe = Get-NodeExe $cfg
 if ($Service -eq 'platform') {
   $args2 = @("--env-file=$envPath", (Join-Parts @($platform, 'dist', 'src', 'main.js')))
 } elseif ($Service -eq 'comfy-bridge') {

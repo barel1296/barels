@@ -40,7 +40,7 @@ export interface ComfySimulator {
   close(): Promise<void>;
 }
 
-export async function startComfySimulator(): Promise<ComfySimulator> {
+export async function startComfySimulator(opts: { port?: number } = {}): Promise<ComfySimulator> {
   const app = Fastify({ logger: false, bodyLimit: 50 * 1024 * 1024 });
   const prompts: SimPrompt[] = [];
   const pending: SimPrompt[] = [];
@@ -216,7 +216,7 @@ export async function startComfySimulator(): Promise<ComfySimulator> {
     return {};
   });
 
-  const address = await app.listen({ host: '127.0.0.1', port: 0 });
+  const address = await app.listen({ host: '127.0.0.1', port: opts.port ?? 0 });
   const sim: ComfySimulator = {
     app,
     baseUrl: address,

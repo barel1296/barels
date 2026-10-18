@@ -59,3 +59,126 @@ jobs:
         with:
           name: test-results
           path: apps/platform/test-results/
+
+  # The Windows deployment package on a real Windows machine (GitHub's runner): Windows PowerShell
+  # 5.1, Task Scheduler, a native PostgreSQL 16 service. ComfyUI and the LLM are the repository's
+  # SIMULATORS (no GPU on the runner): this proves the scripts and the platform on Windows, not the
+  # workstation's hardware, ComfyUI or model (deploy/windows/ACCEPTANCE-TESTS.md does that).
+  windows-deploy:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: powershell
+    env:
+      GI_ROOT: C:\gi
+      PG_PORT: '5433'
+      PG_SUPERUSER_PW: ci-windows-superuser-pw
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/platform/package-lock.json
+      - name: Windows PowerShell version
+        run: $PSVersionTable | Format-Table -AutoSize | Out-String | Write-Host
+      - name: PostgreSQL 16 as a Windows service
+        run: |
+          choco install postgresql16 --params "/Password:$env:PG_SUPERUSER_PW /Port:$env:PG_PORT" -y --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Service postgresql* | Format-Table -AutoSize | Out-String | Write-Host
+      - name: install.ps1 (native PostgreSQL, build, migrations, owner)
+        env:
+          GI_NEW_PASSWORD: ci-windows-owner-password
+        run: |
+          New-Item -ItemType Directory -Force "$env:GI_ROOT\config" | Out-Null
+          $tpl = (Get-Content ops\env.example -Raw -Encoding UTF8) -replace '(?m)^PG_PORT=5432', "PG_PORT=$env:PG_PORT"
+          [IO.File]::WriteAllText("$env:GI_ROOT\config\golden.env", $tpl, (New-Object Text.UTF8Encoding $false))
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\install.ps1 -InstallRoot $env:GI_ROOT -Postgres native `
+            -PgAdminUrl "postgres://postgres:$($env:PG_SUPERUSER_PW)@127.0.0.1:$($env:PG_PORT)/postgres" -OwnerEmail owner@example.test -OwnerName "CI Owner"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: install.ps1 again (idempotent)
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\install.ps1 -InstallRoot $env:GI_ROOT -Postgres existing -SkipBuild
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: SIMULATED ComfyUI and LLM (no GPU on the runner)
+        run: |
+          Start-Process -FilePath node -ArgumentList 'dist/src/simulators/main.js', '--llm-port', '18091', '--comfy-port', '18188' `
+            -WorkingDirectory apps\platform -RedirectStandardOutput "$env:GI_ROOT\logs\simulators.out" -RedirectStandardError "$env:GI_ROOT\logs\simulators.err"
+          for ($i = 0; $i -lt 30; $i++) { try { Invoke-WebRequest http://127.0.0.1:18188/system_stats -UseBasicParsing | Out-Null; break } catch { Start-Sleep 1 } }
+          Invoke-RestMethod -Method Post http://127.0.0.1:18091/__sim__/rules -ContentType 'application/json' `
+            -Body '{"contains":"Extract durable, non-sensitive facts","reply":"{\"memories\":[{\"category\":\"interest\",\"statement\":\"enjoys hiking\",\"confidence\":0.9}]}"}' | Out-Null
+      - name: discover-comfyui.ps1 (process/port scan, probe, package check, -WriteEnv)
+        run: |
+          Copy-Item -Recurse apps\platform\test\fixtures\comfy-packages\sim.portrait "$env:GI_ROOT\packages\"
+          . .\deploy\windows\common.ps1
+          Set-EnvValue "$env:GI_ROOT\config\golden.env" LLM_BASE_URL 'http://127.0.0.1:18091/v1'
+          Set-EnvValue "$env:GI_ROOT\config\golden.env" LLM_CHAT_MODEL 'sim-chat-model'
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\discover-comfyui.ps1 -InstallRoot $env:GI_ROOT -Url http://127.0.0.1:18188 -WriteEnv -CheckPackages -OutFile "$env:GI_ROOT\evidence\comfyui-discovery.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: register-services.ps1 -Start (Task Scheduler, S4U)
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\register-services.ps1 -InstallRoot $env:GI_ROOT -Start
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $up = $false
+          for ($i = 0; $i -lt 90; $i++) {
+            try { Invoke-WebRequest http://127.0.0.1:8080/healthz -UseBasicParsing | Out-Null; Invoke-WebRequest http://127.0.0.1:8190/vec/v1/health -UseBasicParsing -ErrorAction SilentlyContinue | Out-Null; $up = $true; break } catch { Start-Sleep 2 }
+          }
+          Get-ScheduledTask GoldenInfluencer-* | Get-ScheduledTaskInfo | Format-Table TaskName, LastRunTime, LastTaskResult -AutoSize | Out-String | Write-Host
+          if (-not $up) { Get-ChildItem "$env:GI_ROOT\logs" | ForEach-Object { Write-Host "--- $($_.Name)"; Get-Content $_.FullName -Tail 40 | Write-Host }; exit 1 }
+      - name: health-check.ps1
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\health-check.ps1 -InstallRoot $env:GI_ROOT
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: conformance.ps1 (VEC v1 against the bridge)
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\conformance.ps1 -InstallRoot $env:GI_ROOT
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: llm-bench.ps1 (SIMULATED LLM)
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\llm-bench.ps1 -InstallRoot $env:GI_ROOT -Runs 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: integration-test.ps1 with one generation (SIMULATED ComfyUI behind the real bridge)
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\ci\seed-simulated.ps1 -InstallRoot $env:GI_ROOT
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $seed = Get-Content "$env:GI_ROOT\evidence\ci-seed.json" -Raw | ConvertFrom-Json
+          $env:GI_API_TOKEN = $seed.admin_token
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\integration-test.ps1 -InstallRoot $env:GI_ROOT -LlmRuns 3 -Generate -InfluencerId $seed.influencer_id -Purpose feed_photo -GenerateTimeoutSec 180
+          $code = $LASTEXITCODE
+          Get-ChildItem "$env:GI_ROOT\evidence\integration-*\summary.md" | ForEach-Object { Get-Content $_.FullName | Write-Host }
+          exit $code
+      - name: backup.ps1 and restore.ps1 (Test, then Replace with the tasks running)
+        run: |
+          $admin = "postgres://postgres:$($env:PG_SUPERUSER_PW)@127.0.0.1:$($env:PG_PORT)/postgres"
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\backup.ps1 -InstallRoot $env:GI_ROOT
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $b = (Get-ChildItem "$env:GI_ROOT\backups" -Directory | Where-Object Name -match '^\d{8}-\d{6}$' | Sort-Object Name | Select-Object -Last 1).FullName
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\restore.ps1 -InstallRoot $env:GI_ROOT -BackupDir $b -PgAdminUrl $admin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\restore.ps1 -InstallRoot $env:GI_ROOT -BackupDir $b -Mode Replace -Force -ConfirmDatabase golden -PgAdminUrl $admin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          for ($i = 0; $i -lt 60; $i++) { try { Invoke-WebRequest http://127.0.0.1:8080/healthz -UseBasicParsing | Out-Null; break } catch { Start-Sleep 2 } }
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\health-check.ps1 -InstallRoot $env:GI_ROOT
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: register-services.ps1 -Remove
+        if: always()
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows\register-services.ps1 -InstallRoot $env:GI_ROOT -Remove
+      - name: Full automated suite on Windows (PostgreSQL 16 service, simulators, Chromium)
+        working-directory: apps/platform
+        env:
+          TEST_PG_ROLE_PASSWORD: ci-role-password
+        run: |
+          $env:TEST_PG_ADMIN_URL = "postgres://postgres:$($env:PG_SUPERUSER_PW)@127.0.0.1:$($env:PG_PORT)/postgres"
+          npx playwright-core install chromium
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-deploy-evidence
+          path: |
+            C:\gi\evidence\
+            C:\gi\logs\
+            C:\gi\backups\*\*.json

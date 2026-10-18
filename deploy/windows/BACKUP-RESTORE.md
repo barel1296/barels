@@ -82,10 +82,14 @@ powershell -ExecutionPolicy Bypass -File deploy\windows\restore.ps1 -InstallRoot
 Steps:
 
 1. Verifies the checksum and asks for confirmation: you type the database name.
-2. Stops `GoldenInfluencer-Platform` and `GoldenInfluencer-ComfyBridge`, and closes the remaining connections.
+2. Stops `GoldenInfluencer-Platform` and `GoldenInfluencer-ComfyBridge`, including any `node.exe` they leave behind. It then blocks new connections to the database and closes the remaining ones. If the rename fails, connections are allowed again.
 3. **Renames** the current database to `golden_before_restore_<stamp>`. Nothing is deleted, so you can go back.
 4. Restores the dump as `golden`, re-records the backup it came from, and copies media files missing from `MEDIA_ROOT` out of the mirror. Existing files are never overwritten.
 5. Starts the tasks again and records a `restore` run.
+
+For a scripted drill, pass `-ConfirmDatabase golden` instead of typing the name.
+
+The pg_dump, pg_restore and psql versions are chosen to match the server's major version, which matters when several PostgreSQL versions are installed.
 
 Then:
 

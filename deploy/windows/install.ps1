@@ -84,6 +84,7 @@ Set-IfEmpty 'AUDIT_EXPORT_DIR' ($dirs.audit -replace '\\', '/')
 Set-IfEmpty 'COMFY_BRIDGE_DATA_DIR' ($dirs.bridge -replace '\\', '/')
 Set-IfEmpty 'COMFY_BRIDGE_PACKAGES_DIR' ($dirs.packages -replace '\\', '/')
 Set-IfEmpty 'NODE_NAME' ([System.Net.Dns]::GetHostName())
+Set-IfEmpty 'NODE_EXE' ((Get-Command node).Source -replace '\\', '/')
 Set-IfEmpty 'MASTER_KEY' (New-Secret 32) -Secret
 Set-IfEmpty 'ASSET_URL_SECRET' (New-Secret 32) -Secret
 Set-IfEmpty 'INVOICE_SECRET' (New-Secret 32) -Secret
