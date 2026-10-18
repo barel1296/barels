@@ -1,0 +1,16 @@
+{
+  "contract_version": "9.0",
+  "request_id": "00000000-0000-4000-8000-00000000c011",
+  "attempt": 1,
+  "workflow": { "key": "__conformance__.solid_color", "version": "1.0.0" },
+  "influencer_id": "00000000-0000-4000-8000-0000000000a1",
+  "persona": {
+    "influencer_id": "00000000-0000-4000-8000-0000000000a1",
+    "persona_version_id": "00000000-0000-4000-8000-0000000000b1",
+    "persona_version": 1
+  },
+  "parameters": { "color": "#000000", "width": 16, "height": 16 },
+  "output": { "count": 1, "transfer": "http_download" },
+  "priority": "maintenance",
+  "timeout_s": 60
+}

@@ -1,6 +1,6 @@
 # AI Influencer Operating System: Architecture & Implementation Plan
 
-> Status: **Proposed for approval. No application code yet.** · Revision: **2026-10-18 — MVP scope update: 20–30 personas on one Windows workstation (RTX 5090 Laptop, 24 GB), all AI inference local, ComfyUI as media engine** · Previous revision: 2026-10-14 (cloud design)
+> Status: **Phase 1 implemented: platform foundation + first vertical slice, contract-tested only** (see [16 — Implementation status](16-implementation-status.md)). Architecture below remains the design. · Revision: **2026-10-18 — MVP scope update: 20–30 personas on one Windows workstation (RTX 5090 Laptop, 24 GB), all AI inference local, ComfyUI as media engine** · Previous revision: 2026-10-14 (cloud design)
 
 ## Executive summary
 
@@ -24,9 +24,9 @@ The platform is a **modular monolith plus one shared Inference Host** on a singl
 1. **Personas share inference.** One resident chat model serves every persona through persona prompts. One ComfyUI instance renders for every persona by swapping **per-persona LoRAs**. A persona is configuration (`identity.persona_runtime_config`), not infrastructure.
 2. **A GPU Arbiter owns the 24 GB.** It keeps a resident chat lane, gives paid fans' chats priority, runs media in a measured VRAM budget, schedules media fairly across personas with model-affinity campaigns, and handles thermal throttling and OOMs. Payments never touch the GPU (doc 13).
 3. **Capacity is measured, not assumed.** Configured personas and concurrent chatters are separate limits (`N_max` vs. `A_max`). Both are computed from benchmarks run on *this* machine (doc 14). No performance number in these docs is invented; every sizing value is a parameter until measured.
-4. **The licence comes first in model choice** (doc 15):
-   - **Images:** Z-Image Turbo with persona LoRAs; edits with Qwen-Image-Edit-2511.
-   - **Video:** Wan 2.2 image-to-video.
+4. **The licence comes first in model choice** (doc 15). Image and video choices are **advisory input for Track A**, which owns them since the 2026-10-18 Golden Influencer update. The platform reaches media only through the model-agnostic [Visual Engine Contract](../contracts/visual-engine/README.md):
+   - **Images (Track A decision):** Z-Image Turbo with persona LoRAs; edits with Qwen-Image-Edit-2511.
+   - **Video (Track A decision):** Wan 2.2 image-to-video.
    - **Chat and image judging:** Qwen3.5-9B. **Safety:** Qwen3Guard. **Embeddings:** Qwen3-Embedding.
    - **Engine:** llama.cpp or vLLM.
    - All are Apache/MIT, and are **candidates in a Stage-0 bake-off** judged by blind quality panels.
@@ -73,7 +73,7 @@ The platform is a **modular monolith plus one shared Inference Host** on a singl
 | 02 | [Platform capabilities: verified vs. assumed](02-platform-capabilities.md) | Instagram, Telegram, 30-persona account limits, legal; cloud vendors (superseded) |
 | 03 | [Risk register](03-risk-register.md) | Revised top 10 + single-workstation risks |
 | 04 | [System architecture](04-system-architecture.md) | Deployment topology, processes, modules, ingress, environments, scale-out |
-| 05 | [Data model](05-data-model.md) + [DDL](schema/schema.sql) + [invariant tests](schema/invariants_test.sql) | Schemas, state machines, invariants, retention, erasure |
+| 05 | [Data model](05-data-model.md) + [DDL](schema/schema.sql) + [invariant tests](schema/invariants_test.sql) | Schemas, state machines, invariants, retention, erasure. **Authoritative schema is now [`db/migrations/`](../db/migrations/)** |
 | 06 | [Agent system](06-agent-system.md) | Agents on local models, autonomy levels, autonomy as a scaling gate |
 | 07 | [Content pipeline](07-content-pipeline.md) | ComfyUI workflows, persona LoRAs, local validation, provenance |
 | 08 | [Telegram monetization & entitlements](08-telegram-monetization.md) | Stars flows for 30 bots, outage-safe payment integrity |
@@ -83,7 +83,10 @@ The platform is a **modular monolith plus one shared Inference Host** on a singl
 | 12 | [Operating cost model](12-cost-model.md) | Measured monthly cost ledger, unit costs, attribution |
 | 13 | [GPU scheduling, capacity & admission control](13-gpu-scheduling-and-capacity.md) | VRAM model, modes, arbiter, fair share, capacity formulas, limits |
 | 14 | [Benchmark protocol](14-benchmark-protocol.md) | Hardware/model benchmarks, quality evals, drills, recording rules |
-| 15 | [Local model stack & licensing](15-local-model-stack.md) | Candidates, exclusions, licence workflow, hardware requirements |
+| 15 | [Local model stack & licensing](15-local-model-stack.md) | Candidates, exclusions, licence workflow, hardware requirements (image/video sections advisory to Track A) |
+| 16 | [Implementation status](16-implementation-status.md) | What is built, how it was validated (contract-tested vs. real), blockers |
+| — | [Visual Engine Contract v1](../contracts/visual-engine/README.md) | Track A ↔ Track B API: OpenAPI, JSON Schemas, state machines, error codes, conformance |
+| — | [Platform README](../apps/platform/README.md) | Setup, operations runbook, API walkthrough, error codes, tests |
 
 ## Key architecture decisions
 

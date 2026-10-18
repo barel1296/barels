@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testsuite name="conformance runner against the contract test adapter" time="1.237686" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
+		<testcase name="passes C01–C16 and labels the result as contract-mock only" time="0.784016" classname="test"/>
+		<testcase name="detects a non-conforming engine (wrong token → C02 fails)" time="0.117844" classname="test"/>
+	</testsuite>
+	<testsuite name="visual job failure handling (contract mock with fault injection)" time="8.704507" disabled="0" errors="0" tests="18" failures="0" skipped="0" hostname="vm">
+		<testcase name="retries a retryable engine error with attempt+1 and succeeds" time="0.472833" classname="test"/>
+		<testcase name="fails immediately on a non-retryable engine error and marks the content item for rework" time="0.204878" classname="test"/>
+		<testcase name="stops after max_attempts retryable failures" time="0.594514" classname="test"/>
+		<testcase name="rejects outputs whose bytes do not match the declared sha256 and retries" time="0.324018" classname="test"/>
+		<testcase name="recovers when the engine loses a job (ENGINE_JOB_LOST → attempt+1)" time="0.296429" classname="test"/>
+		<testcase name="replays an ambiguous submit with the same request_id+attempt (no duplicate engine job)" time="0.214997" classname="test"/>
+		<testcase name="backs off on ENGINE_BUSY without consuming an attempt" time="0.296885" classname="test"/>
+		<testcase name="fails permanently on a non-conforming engine response (ENGINE_PROTOCOL_ERROR)" time="0.170177" classname="test"/>
+		<testcase name="times out a hung job, cancels it on the engine and retries" time="1.351277" classname="test"/>
+		<testcase name="cancels a running job on request" time="0.339868" classname="test"/>
+		<testcase name="applies per-persona QA thresholds: low engine score → asset rejected, item needs rework" time="0.304787" classname="test"/>
+		<testcase name="concurrent creations with the same idempotency key yield exactly one job" time="0.222814" classname="test"/>
+		<testcase name="validates parameters against the manifest before contacting the engine" time="0.014575" classname="test"/>
+		<testcase name="only runs approved workflow versions; manifests are immutable" time="0.062668" classname="test"/>
+		<testcase name="keeps persona identity independent: another influencer's asset cannot be used as a reference" time="0.422642" classname="test"/>
+		<testcase name="dispatches higher priority classes first (P2 before P5) on a single-slot engine" time="0.414927" classname="test"/>
+		<testcase name="holds all media dispatch while the global kill switch is on" time="0.354845" classname="test"/>
+		<testcase name="fails queued jobs whose workflow version was disabled" time="0.208820" classname="test"/>
+	</testsuite>
+	<testsuite name="vertical slice: one influencer from configuration to scheduled publication (contract mock)" time="3.464333" disabled="0" errors="0" tests="9" failures="0" skipped="0" hostname="vm">
+		<testcase name="1. creates and configures one influencer" time="0.200638" classname="test"/>
+		<testcase name="2. assigns an independent persona identity (persona version, reference asset, adapter)" time="0.168173" classname="test"/>
+		<testcase name="3. registers the visual workflow contract (engine discovery, platform approval, binding)" time="0.177092" classname="test"/>
+		<testcase name="4. submits a generation job through the contract" time="0.058935" classname="test"/>
+		<testcase name="5. tracks job status and handles the failure (retry with attempt+1)" time="0.352157" classname="test"/>
+		<testcase name="6. receives and stores the generated asset metadata" time="0.016517" classname="test"/>
+		<testcase name="7. reviews the asset: rejection with a reason, then approval bound to the payload hash" time="0.119860" classname="test"/>
+		<testcase name="8. schedules the approved content for publication" time="0.092322" classname="test"/>
+		<testcase name="9. records the entire action history (lineage + audit)" time="0.042992" classname="test"/>
+	</testsuite>
+	<testsuite name="governance and security invariants" time="3.841605" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
+		<testsuite name="tenant isolation" time="0.079906" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
+			<testcase name="API: another workspace cannot see or act on this influencer" time="0.042992" classname="test"/>
+			<testcase name="DB: row-level security scopes aios_app to app.workspace_id and fails closed without it" time="0.035445" classname="test"/>
+		</testsuite>
+		<testsuite name="append-only records" time="0.116712" disabled="0" errors="0" tests="4" failures="0" skipped="0" hostname="vm">
+			<testcase name="core.audit_log cannot be updated or deleted by aios_app" time="0.030666" classname="test"/>
+			<testcase name="core.audit_log cannot be updated or deleted by aios_worker" time="0.028041" classname="test"/>
+			<testcase name="inference.visual_job_events cannot be updated or deleted by aios_app" time="0.028536" classname="test"/>
+			<testcase name="approvals.approval_decisions cannot be updated or deleted by aios_worker" time="0.028361" classname="test"/>
+		</testsuite>
+		<testsuite name="approvals" time="0.188383" disabled="0" errors="0" tests="3" failures="0" skipped="0" hostname="vm">
+			<testcase name="API: a requester with approval rights still cannot approve their own request" time="0.071471" classname="test"/>
+			<testcase name="DB trigger: self-approval and hash mismatch are rejected even when the application is bypassed" time="0.029661" classname="test"/>
+			<testcase name="a new revision supersedes the pending approval of the previous one" time="0.086312" classname="test"/>
+		</testsuite>
+		<testsuite name="publication authorization" time="0.331905" disabled="0" errors="0" tests="3" failures="0" skipped="0" hostname="vm">
+			<testcase name="DB trigger: a publication cannot be scheduled without an approved request for that exact content hash" time="0.021691" classname="test"/>
+			<testcase name="approved contract-mock content is scheduled but held: MOCK_ASSET_NOT_PUBLISHABLE, never published" time="0.109876" classname="test"/>
+			<testcase name="publisher executes only through a registered channel adapter and records the external operation (in-process test adapter, not Instagram)" time="0.199550" classname="test"/>
+		</testsuite>
+		<testsuite name="secrets" time="0.036885" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
+			<testcase name="stores platform credentials and engine tokens only as envelope-encrypted ciphertext" time="0.009604" classname="test"/>
+			<testcase name="serves reference assets to the engine only through valid, unexpired signed URLs" time="0.026872" classname="test"/>
+		</testsuite>
+		<testsuite name="RBAC and policy" time="0.083995" disabled="0" errors="0" tests="3" failures="0" skipped="0" hostname="vm">
+			<testcase name="enforces role permissions and platform-admin-only operations" time="0.034743" classname="test"/>
+			<testcase name="rejects mature channels without an adult audience gate and explicit content entirely" time="0.025447" classname="test"/>
+			<testcase name="a new influencer starts empty: nothing is copied from existing personas" time="0.023345" classname="test"/>
+		</testsuite>
+		<testsuite name="migrations" time="0.039342" disabled="0" errors="0" tests="1" failures="0" skipped="0" hostname="vm">
+			<testcase name="are idempotent and refuse to run when an applied migration was modified" time="0.039053" classname="test"/>
+		</testsuite>
+	</testsuite>
+	<testsuite name="canonical JSON (RFC 8785 subset)" time="0.004392" disabled="0" errors="0" tests="6" failures="0" skipped="0" hostname="vm">
+		<testcase name="sorts keys recursively and drops whitespace" time="0.001244" classname="test"/>
+		<testcase name="sorts by UTF-16 code units and escapes like JSON.stringify" time="0.000300" classname="test"/>
+		<testcase name="uses ECMAScript number serialisation" time="0.000171" classname="test"/>
+		<testcase name="rejects values that are not JSON" time="0.000462" classname="test"/>
+		<testcase name="omits undefined object members, like JSON" time="0.000149" classname="test"/>
+		<testcase name="manifest hash ignores the lifecycle fields deprecated and sunset_at only" time="0.000776" classname="test"/>
+	</testsuite>
+	<testsuite name="revision content hash (what reviewers approve)" time="0.005256" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
+		<testcase name="is stable regardless of input ordering of assets by position" time="0.003138" classname="test"/>
+		<testcase name="changes when anything that would be published changes" time="0.000681" classname="test"/>
+	</testsuite>
+	<testsuite name="Visual Engine Contract artifacts" time="0.113685" disabled="0" errors="0" tests="20" failures="0" skipped="0" hostname="vm">
+		<testcase name="maps every example file to a schema" time="0.004167" classname="test"/>
+		<testcase name="examples/engine-info.json validates against engine-info" time="0.001808" classname="test"/>
+		<testcase name="examples/workflow-list.json validates against workflow-list" time="0.001024" classname="test"/>
+		<testcase name="examples/workflow-manifest.conformance-solid-color.json validates against workflow-manifest" time="0.002619" classname="test"/>
+		<testcase name="examples/workflow-manifest.instagram-photo.json validates against workflow-manifest" time="0.000346" classname="test"/>
+		<testcase name="examples/job-submission.json validates against job-submission" time="0.003196" classname="test"/>
+		<testcase name="examples/job-status.queued.json validates against job-status" time="0.002553" classname="test"/>
+		<testcase name="examples/job-status.running.json validates against job-status" time="0.000472" classname="test"/>
+		<testcase name="examples/job-status.succeeded.json validates against job-status" time="0.001875" classname="test"/>
+		<testcase name="examples/job-status.failed.json validates against job-status" time="0.000694" classname="test"/>
+		<testcase name="examples/job-status.cancelled.json validates against job-status" time="0.000275" classname="test"/>
+		<testcase name="examples/error.parameter-validation.json validates against error-response" time="0.000540" classname="test"/>
+		<testcase name="examples/error.engine-busy.json validates against error-response" time="0.000140" classname="test"/>
+		<testcase name="examples/resources.json validates against resource-state" time="0.000441" classname="test"/>
+		<testcase name="the job-status schema enforces outputs on succeeded and error on failed" time="0.000504" classname="test"/>
+		<testcase name="workflow-list example carries the real manifest hash of the example manifest" time="0.001255" classname="test"/>
+		<testcase name="example parameters satisfy the example manifest input_schema" time="0.045148" classname="test"/>
+		<testcase name="submission fixtures: valid ones validate, invalid ones fail where intended" time="0.004220" classname="test"/>
+		<testcase name="conformance scenarios C01–C16 are all defined" time="0.000746" classname="test"/>
+		<testcase name="openapi.yaml parses and every $ref / externalValue file exists" time="0.038640" classname="test"/>
+	</testsuite>
+	<testsuite name="envelope encryption" time="0.005423" disabled="0" errors="0" tests="4" failures="0" skipped="0" hostname="vm">
+		<testcase name="round-trips and never stores plaintext" time="0.002313" classname="test"/>
+		<testcase name="binds the ciphertext to its row (AAD) and detects tampering" time="0.001009" classname="test"/>
+		<testcase name="fails clearly when the wrapping key is not loaded" time="0.000710" classname="test"/>
+		<testcase name="rejects master keys that are not 32 bytes" time="0.000237" classname="test"/>
+	</testsuite>
+	<testsuite name="tokens and signed URLs" time="0.001481" disabled="0" errors="0" tests="2" failures="0" skipped="0" hostname="vm">
+		<testcase name="generates prefixed tokens and stores only their hash" time="0.000733" classname="test"/>
+		<testcase name="verifies asset URL signatures and expiry" time="0.000497" classname="test"/>
+	</testsuite>
+	<testsuite name="media helpers" time="0.010212" disabled="0" errors="0" tests="3" failures="0" skipped="0" hostname="vm">
+		<testcase name="encodes valid PNGs whose IHDR reports the requested size" time="0.006348" classname="test"/>
+		<testcase name="identifies media by magic bytes, not by declared type" time="0.000744" classname="test"/>
+		<testcase name="generates time-ordered UUIDv7 identifiers" time="0.001190" classname="test"/>
+	</testsuite>
+	<testsuite name="platform QA decisions" time="0.007173" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
+		<testcase name="influencer thresholds override workspace defaults for the same check" time="0.003856" classname="test"/>
+		<testcase name="rejects below min_score and above max_score" time="0.000519" classname="test"/>
+		<testcase name="a required check that the engine did not report fails; an optional one does not" time="0.000204" classname="test"/>
+		<testcase name="flag thresholds keep the asset valid but flagged" time="0.000170" classname="test"/>
+		<testcase name="engine pass/fail flags are advisory and ignored by the decision" time="0.000661" classname="test"/>
+	</testsuite>
+	<testsuite name="GPU scheduler policy" time="0.008433" disabled="0" errors="0" tests="7" failures="0" skipped="0" hostname="vm">
+		<testcase name="orders by priority class, then FIFO" time="0.004120" classname="test"/>
+		<testcase name="ages a waiting job by at most one class and never above P2" time="0.000433" classname="test"/>
+		<testcase name="treats jobs with an imminent deadline as P2" time="0.000259" classname="test"/>
+		<testcase name="fair share: influencers over their daily GPU quota go after everyone within quota" time="0.000549" classname="test"/>
+		<testcase name="admits GPU jobs concurrently only with measured figures that fit the measured lane budget" time="0.000386" classname="test"/>
+		<testcase name="strict head-of-line for GPU jobs; non-GPU jobs may use free slots" time="0.000534" classname="test"/>
+		<testcase name="never exceeds free slots" time="0.000249" classname="test"/>
+	</testsuite>
+	<testsuite name="workflow version ranges" time="0.004067" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
+		<testcase name="parses SemVer and orders prereleases below releases" time="0.001544" classname="test"/>
+		<testcase name="caret ranges never cross a MAJOR; tilde ranges never cross a MINOR" time="0.000479" classname="test"/>
+		<testcase name="prereleases are selected only by exact versions" time="0.000225" classname="test"/>
+		<testcase name="maxSatisfying picks the highest matching version" time="0.000257" classname="test"/>
+		<testcase name="rejects malformed ranges" time="0.000216" classname="test"/>
+	</testsuite>
+	<testsuite name="platform visual job state machine" time="0.005697" disabled="0" errors="0" tests="5" failures="0" skipped="0" hostname="vm">
+		<testcase name="terminal states have no exits" time="0.002600" classname="test"/>
+		<testcase name="every state is reachable from queued" time="0.000425" classname="test"/>
+		<testcase name="matches the normative diagram in contracts/visual-engine/README.md §6.2 exactly" time="0.000764" classname="test"/>
+		<testcase name="rejects illegal transitions" time="0.000293" classname="test"/>
+		<testcase name="retry delay: exponential backoff with full jitter, honouring retry_after_ms" time="0.000240" classname="test"/>
+	</testsuite>
+	<!-- tests 106 -->
+	<!-- suites 21 -->
+	<!-- pass 106 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 24614.516483 -->
+</testsuites>

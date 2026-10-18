@@ -27,7 +27,7 @@
 | GPU sampler | NVML at 200–500 ms: `memory.used`, `power.draw`, `clocks.sm`, `clocks.mem`, `temperature.gpu`, `utilization.gpu`, throttle reasons. Peak and percentile summaries. |
 | System sampler | CPU %, RAM used, swap, disk I/O, process RSS (psutil) |
 | LLM load generator | Async client that replays **synthetic conversation traces** against the chat engine's OpenAI-compatible endpoint, with fixed concurrency `b` (closed loop) and open-loop arrival-rate modes. It uses the **production prompt shape**: persona prefix, memory block, history, structured-output schema. It records TTFT, total latency, prompt/completion tokens, and cache hits where the engine reports them. |
-| ComfyUI driver | Submits versioned workflows from `inference.workflows` through `/prompt`, tracks progress on the websocket, reads `/history`, and records per-node timings where available, wall time and peak VRAM. It calls `/free` between cold-start tests. |
+| ComfyUI driver | (Track A) Submits versioned workflows through `/prompt`, tracks progress on the websocket, reads `/history`, and records per-node timings where available, wall time and peak VRAM. It calls `/free` between cold-start tests. Resulting figures are published in contract manifests (`resources.vram_mb_peak`, `est_seconds_*`, `measured_on`). |
 | Energy reader | Smart plug with energy metering (local API or manual reading) at run start and end, plus NVML `power.draw` integration for the GPU share |
 | Report generator | Markdown + CSV per run; comparison against the previous run of the same suite |
 
@@ -64,7 +64,7 @@
 | **B-AUX-3** | Embeddings | 10k short texts and 1k memory facts: throughput on GPU vs. CPU | Placement decision |
 | **B-VLM-1** | Vision judge | 200 generated images through the rubric prompt (attributes, rating, artifacts): latency per image, VRAM if a separate model | `t_val` (VLM part), `W_vlm` |
 
-### 3.3 Image (per workflow version in `inference.workflows`)
+### 3.3 Image (per workflow version in `inference.visual_workflows`)
 
 | ID | Measures | Procedure | Output parameters |
 |---|---|---|---|

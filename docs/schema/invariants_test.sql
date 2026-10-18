@@ -1,7 +1,9 @@
 -- =============================================================================
 -- Schema invariant tests (docs/05 §4). Run against a FRESH database after
--- applying schema.sql:
---   psql -d <fresh_db> -f schema.sql && psql -d <fresh_db> -f invariants_test.sql
+-- applying the migrations (db/migrations, authoritative since Phase 1):
+--   for f in db/migrations/*.sql; do psql -d <fresh_db> -1 -f "$f"; done
+--   psql -d <fresh_db> -f docs/schema/invariants_test.sql
+-- The platform's own invariant tests run in CI: apps/platform/test/integration.
 -- Each "must FAIL" case is expected to print an ERROR; each "must SUCCEED" case
 -- must print nothing. CI wraps this file and asserts the expected outcomes.
 -- =============================================================================
@@ -80,9 +82,11 @@ VALUES ('b0000000-0000-0000-0000-000000000001','chat.primary','llm','m','x','r',
 INSERT INTO inference.gpu_nodes (id, name, gpu_name, vram_total_mb, capabilities) VALUES ('c0000000-0000-0000-0000-000000000001','ws-01','RTX 5090 Laptop',24576,'{N,B,H,A,T}');
 INSERT INTO inference.gpu_modes (node_id, name, version, chat_model_id, allowed_classes, status, approved_by)
 VALUES ('c0000000-0000-0000-0000-000000000001','S',1,'b0000000-0000-0000-0000-000000000001','{I,N,B,A}','active','90000000-0000-0000-0000-00000000000a');
-\echo '--- T12 approve workflow without measured VRAM must FAIL'
-INSERT INTO inference.workflows (key, version, kind, graph, param_bindings, required_model_ids, custom_nodes_lock, allowed_modes, status, approved_by)
-VALUES ('img.portrait',1,'image_gen','{}','{}','{}','lock','{S}','approved','90000000-0000-0000-0000-00000000000a');
+\echo '--- T12 changing a registered workflow manifest under the same version must FAIL (MANIFEST_IMMUTABLE)'
+INSERT INTO inference.visual_workflows (workflow_key, version, version_major, version_minor, version_patch, contract_version, task, title,
+  output_kind, manifest, manifest_sha256, gpu_required, max_runtime_s, registered_by_type, registered_by_id)
+VALUES ('img.portrait','1.0.0',1,0,0,'1.0','generate_image','Portrait','image','{"title":"Portrait"}', repeat('a',64), true, 600, 'system', 'test');
+UPDATE inference.visual_workflows SET manifest = '{"title":"Changed"}', manifest_sha256 = repeat('b',64) WHERE workflow_key = 'img.portrait';
 \echo '--- T13 duplicate GPU job idempotency key must FAIL on 2nd insert'
 INSERT INTO inference.gpu_jobs (job_class, kind, est_vram_mb, est_gpu_seconds, idempotency_key, input, requested_by_type, requested_by_id)
 VALUES ('B','image_gen',9000,30,'gen:item1:cand1','{}','system','t');

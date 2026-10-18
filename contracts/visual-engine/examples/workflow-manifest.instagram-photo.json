@@ -1,0 +1,44 @@
+{
+  "contract_version": "1.0",
+  "workflow_key": "instagram_photo",
+  "version": "1.0.0",
+  "task": "generate_image",
+  "title": "Instagram persona photo (EXAMPLE ONLY)",
+  "description": "ILLUSTRATIVE manifest showing the shape of a real workflow. The actual workflows, their parameters and resource figures are owned and published by the visual track (Track A). Nothing here selects or implies a model.",
+  "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["environment", "outfit", "expression", "aspect_ratio"],
+    "properties": {
+      "environment": { "type": "string", "minLength": 2, "maxLength": 200 },
+      "outfit": { "type": "string", "minLength": 2, "maxLength": 200 },
+      "expression": { "type": "string", "enum": ["neutral", "smiling", "laughing", "playful", "serious", "thoughtful"] },
+      "hairstyle": { "type": "string", "maxLength": 120 },
+      "pose": { "type": "string", "maxLength": 200 },
+      "lighting": { "type": "string", "maxLength": 120 },
+      "aspect_ratio": { "type": "string", "enum": ["1:1", "4:5", "9:16", "16:9"] },
+      "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+    }
+  },
+  "references": {
+    "persona_identity": { "required": true },
+    "assets": { "roles": ["face", "identity", "outfit", "pose", "environment"], "min": 0, "max": 6 },
+    "adapters": { "kinds": ["lora"], "max": 2 }
+  },
+  "outputs": { "kind": "image", "mime_types": ["image/png", "image/jpeg"], "count": { "min": 1, "max": 8, "default": 4 } },
+  "resources": {
+    "gpu_required": true,
+    "vram_mb_peak": null,
+    "est_seconds_p50": null,
+    "est_seconds_p95": null,
+    "measured_on": null,
+    "preemptible": true,
+    "default_priority": "scheduled_image"
+  },
+  "timeouts": { "max_runtime_s": 900 },
+  "quality": { "qa_checks": ["identity_similarity"] },
+  "provenance": { "c2pa": "platform_signs" },
+  "deprecated": false,
+  "sunset_at": null,
+  "engine_metadata": { "note": "opaque to the platform" }
+}

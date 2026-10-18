@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.aios.internal/vec/v1/workflow-list.schema.json",
+  "title": "Workflow catalogue (GET /vec/v1/workflows)",
+  "type": "object",
+  "required": ["workflows"],
+  "properties": {
+    "workflows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["workflow_key", "version", "task", "manifest_sha256"],
+        "properties": {
+          "workflow_key": { "$ref": "common.schema.json#/$defs/WorkflowKey" },
+          "version": { "$ref": "common.schema.json#/$defs/Semver" },
+          "task": { "$ref": "common.schema.json#/$defs/Task" },
+          "title": { "type": "string" },
+          "deprecated": { "type": "boolean" },
+          "manifest_sha256": {
+            "$ref": "common.schema.json#/$defs/Sha256",
+            "description": "Lowercase hex SHA-256 of the manifest as RFC 8785 canonical JSON, with the lifecycle fields `deprecated` and `sunset_at` removed (README §4.2). Lets the platform detect a changed manifest under an unchanged version."
+          }
+        }
+      }
+    }
+  }
+}

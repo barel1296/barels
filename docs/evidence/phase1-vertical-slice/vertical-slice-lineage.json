@@ -1,0 +1,1033 @@
+{
+  "content_item": {
+    "id": "01a14e8f-bdd7-7d21-b295-471faaa0c5ec",
+    "workspace_id": "01a14e8f-bb92-7c0f-89b2-208d17488741",
+    "influencer_id": "01a14e8f-bc2b-782d-b654-4f1a316206f3",
+    "plan_id": null,
+    "format": "ig_image",
+    "planned_for": null,
+    "target_rating": "general",
+    "assessed_rating": null,
+    "status": "scheduled",
+    "brief": {
+      "mood": "calm",
+      "scene": "morning coffee on a sunny balcony"
+    },
+    "current_revision_id": "01a14e8f-bfc6-75a6-a3b6-00c52a32d6c7",
+    "is_sponsored": false,
+    "sponsor_disclosure": null,
+    "created_by_type": "user",
+    "created_by_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+    "created_at": "2026-10-18T10:30:05.525Z",
+    "updated_at": "2026-10-18T10:30:06.134Z"
+  },
+  "validation_scope": "contract_mock",
+  "persona_versions": [
+    {
+      "id": "01a14e8f-bc82-7651-a559-9235bf0f8cbb",
+      "version": 1,
+      "status": "active",
+      "approved_by": "01a14e8f-bba5-778a-9f59-3742e27cfd60",
+      "approved_at": "2026-10-18T10:30:05.217Z"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "01a14e8f-bd61-75a4-a15a-c0584ab2e7b7",
+      "workflow_key": "mock.persona_portrait",
+      "version": "1.0.0",
+      "manifest_sha256": "95f1369b41bde12f65a8187a0a9e3da6270f2acd20c9ab21e46af454a137b351",
+      "status": "approved",
+      "decided_by": "01a14e8f-bb96-7981-bc36-44c3a2c56196",
+      "decided_at": "2026-10-18T10:30:05.451Z",
+      "decision_note": "contract mock — test evidence only"
+    }
+  ],
+  "engines": [
+    {
+      "id": "01a14e8f-bd2c-7b3f-9029-1d0a046b0f6f",
+      "engine_key": "ws01-mock",
+      "engine_kind": "contract_mock",
+      "reported_engine_id": "contract-mock",
+      "reported_engine_version": "1.0.0-mock"
+    }
+  ],
+  "visual_jobs": [
+    {
+      "id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+      "workspace_id": "01a14e8f-bb92-7c0f-89b2-208d17488741",
+      "influencer_id": "01a14e8f-bc2b-782d-b654-4f1a316206f3",
+      "persona_version_id": "01a14e8f-bc82-7651-a559-9235bf0f8cbb",
+      "content_item_id": "01a14e8f-bdd7-7d21-b295-471faaa0c5ec",
+      "binding_id": "01a14e8f-bdbd-7736-9d9e-2f9bae8d65be",
+      "workflow_id": "01a14e8f-bd61-75a4-a15a-c0584ab2e7b7",
+      "workflow_key": "mock.persona_portrait",
+      "workflow_version": "1.0.0",
+      "engine_id": "01a14e8f-bd2c-7b3f-9029-1d0a046b0f6f",
+      "engine_kind": "contract_mock",
+      "request_id": "01a14e8f-bdf6-7336-bbe6-3467992b9eb7",
+      "attempt": 2,
+      "max_attempts": 3,
+      "priority_class": "scheduled_image",
+      "priority": 3,
+      "parameters": {
+        "seed": 42,
+        "scene": "morning coffee on a sunny balcony",
+        "aspect_ratio": "4:5"
+      },
+      "references": [],
+      "persona_reference_ids": [
+        "01a14e8f-bcca-7968-b691-caaf74035d6c"
+      ],
+      "adapter_ids": [
+        "01a14e8f-bced-7fa5-8620-2b70f7666430"
+      ],
+      "output_count": 2,
+      "timeout_s": 120,
+      "deadline_at": null,
+      "state": "succeeded",
+      "not_before": "2026-10-18T10:30:05.727Z",
+      "engine_job_id": "mock_mvdop4gx_2",
+      "engine_state": "succeeded",
+      "progress": {
+        "stage": "done",
+        "message": null,
+        "fraction": 1
+      },
+      "submission_sha256": "1b6dbeb0970ad40b185136a19a512159d50940b9f5209126d654f3f943fc38de",
+      "dispatched_at": "2026-10-18T10:30:05.777Z",
+      "started_at": "2026-10-18T10:30:05.802Z",
+      "finished_at": "2026-10-18T10:30:05.885Z",
+      "last_polled_at": "2026-10-18T10:30:05.794Z",
+      "error": null,
+      "error_code": null,
+      "error_class": null,
+      "resource_usage": {
+        "gpu_seconds": 0,
+        "vram_peak_mb": null,
+        "wall_seconds": 0.023
+      },
+      "gpu_seconds": 0,
+      "wall_seconds": 0.043,
+      "output_asset_ids": [
+        "01a14e8f-bf32-7c7e-828e-390aee00f604",
+        "01a14e8f-bf39-7129-8a7c-0a79b092c241"
+      ],
+      "requested_by_type": "user",
+      "requested_by_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "agent_run_id": null,
+      "idempotency_key": "slice-feed-photo-0001",
+      "request_hash": "080eccca5beb393e1591203da8f44620d82672f8fcc0c9f28fd837377aeb574c",
+      "trace_id": null,
+      "created_at": "2026-10-18T10:30:05.539Z",
+      "updated_at": "2026-10-18T10:30:05.871Z",
+      "validation_scope": "contract_mock",
+      "events": [
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 1,
+          "occurred_at": "2026-10-18T10:30:05.562Z",
+          "event_type": "created",
+          "from_state": null,
+          "to_state": "queued",
+          "attempt": 1,
+          "engine_job_id": null,
+          "actor_type": "user",
+          "actor_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+          "details": {
+            "workflow": "mock.persona_portrait@1.0.0",
+            "timeout_s": 120,
+            "binding_id": "01a14e8f-bdbd-7736-9d9e-2f9bae8d65be",
+            "adapter_ids": [
+              "01a14e8f-bced-7fa5-8620-2b70f7666430"
+            ],
+            "priority_class": "scheduled_image",
+            "manifest_sha256": "95f1369b41bde12f65a8187a0a9e3da6270f2acd20c9ab21e46af454a137b351",
+            "persona_version_id": "01a14e8f-bc82-7651-a559-9235bf0f8cbb",
+            "reference_asset_ids": [],
+            "persona_reference_ids": [
+              "01a14e8f-bcca-7968-b691-caaf74035d6c"
+            ]
+          }
+        },
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 2,
+          "occurred_at": "2026-10-18T10:30:05.621Z",
+          "event_type": "dispatching",
+          "from_state": "queued",
+          "to_state": "dispatching",
+          "attempt": 1,
+          "engine_job_id": null,
+          "actor_type": "system",
+          "actor_id": "visual-worker",
+          "details": {
+            "engine_id": "01a14e8f-bd2c-7b3f-9029-1d0a046b0f6f",
+            "engine_key": "ws01-mock",
+            "free_slots": 1,
+            "over_quota": false,
+            "engine_kind": "contract_mock",
+            "base_priority": 3,
+            "effective_priority": 3,
+            "quota_gpu_seconds_day": 3600,
+            "used_gpu_seconds_today": 0
+          }
+        },
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 3,
+          "occurred_at": "2026-10-18T10:30:05.679Z",
+          "event_type": "submitted",
+          "from_state": "dispatching",
+          "to_state": "submitted",
+          "attempt": 1,
+          "engine_job_id": "mock_mvdop4dk_1",
+          "actor_type": "engine",
+          "actor_id": "ws01-mock",
+          "details": {
+            "replayed": false,
+            "engine_state": "queued",
+            "engine_job_id": "mock_mvdop4dk_1",
+            "submission_sha256": "2c81bd34db2e967f4f0cf47261ecc25f6dcb0bd105637f29acc967e1efc89f52"
+          }
+        },
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 4,
+          "occurred_at": "2026-10-18T10:30:05.731Z",
+          "event_type": "retry_scheduled",
+          "from_state": "submitted",
+          "to_state": "queued",
+          "attempt": 1,
+          "engine_job_id": null,
+          "actor_type": "system",
+          "actor_id": "visual-worker",
+          "details": {
+            "error": {
+              "code": "RESOURCE_EXHAUSTED",
+              "class": "resource",
+              "message": "simulated GPU out of memory",
+              "retryable": true
+            },
+            "delay_ms": 0,
+            "next_attempt": 2
+          }
+        },
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 5,
+          "occurred_at": "2026-10-18T10:30:05.779Z",
+          "event_type": "dispatching",
+          "from_state": "queued",
+          "to_state": "dispatching",
+          "attempt": 2,
+          "engine_job_id": null,
+          "actor_type": "system",
+          "actor_id": "visual-worker",
+          "details": {
+            "engine_id": "01a14e8f-bd2c-7b3f-9029-1d0a046b0f6f",
+            "engine_key": "ws01-mock",
+            "free_slots": 1,
+            "over_quota": false,
+            "engine_kind": "contract_mock",
+            "base_priority": 3,
+            "effective_priority": 3,
+            "quota_gpu_seconds_day": 3600,
+            "used_gpu_seconds_today": 0
+          }
+        },
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 6,
+          "occurred_at": "2026-10-18T10:30:05.797Z",
+          "event_type": "submitted",
+          "from_state": "dispatching",
+          "to_state": "submitted",
+          "attempt": 2,
+          "engine_job_id": "mock_mvdop4gx_2",
+          "actor_type": "engine",
+          "actor_id": "ws01-mock",
+          "details": {
+            "replayed": false,
+            "engine_state": "queued",
+            "engine_job_id": "mock_mvdop4gx_2",
+            "submission_sha256": "1b6dbeb0970ad40b185136a19a512159d50940b9f5209126d654f3f943fc38de"
+          }
+        },
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 7,
+          "occurred_at": "2026-10-18T10:30:05.853Z",
+          "event_type": "engine_succeeded",
+          "from_state": "submitted",
+          "to_state": "ingesting",
+          "attempt": 2,
+          "engine_job_id": "mock_mvdop4gx_2",
+          "actor_type": "engine",
+          "actor_id": "ws01-mock",
+          "details": {
+            "outputs": 2,
+            "resource_usage": {
+              "gpu_seconds": 0,
+              "vram_peak_mb": null,
+              "wall_seconds": 0.023
+            }
+          }
+        },
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 8,
+          "occurred_at": "2026-10-18T10:30:05.862Z",
+          "event_type": "output_verified",
+          "from_state": null,
+          "to_state": null,
+          "attempt": 2,
+          "engine_job_id": "mock_mvdop4gx_2",
+          "actor_type": "system",
+          "actor_id": "visual-worker",
+          "details": {
+            "bytes": 201,
+            "width": 64,
+            "height": 80,
+            "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+            "mime_type": "image/png",
+            "output_id": "o1"
+          }
+        },
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 9,
+          "occurred_at": "2026-10-18T10:30:05.866Z",
+          "event_type": "output_verified",
+          "from_state": null,
+          "to_state": null,
+          "attempt": 2,
+          "engine_job_id": "mock_mvdop4gx_2",
+          "actor_type": "system",
+          "actor_id": "visual-worker",
+          "details": {
+            "bytes": 201,
+            "width": 64,
+            "height": 80,
+            "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+            "mime_type": "image/png",
+            "output_id": "o2"
+          }
+        },
+        {
+          "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+          "id": 10,
+          "occurred_at": "2026-10-18T10:30:05.887Z",
+          "event_type": "succeeded",
+          "from_state": "ingesting",
+          "to_state": "succeeded",
+          "attempt": 2,
+          "engine_job_id": "mock_mvdop4gx_2",
+          "actor_type": "system",
+          "actor_id": "visual-worker",
+          "details": {
+            "asset_ids": [
+              "01a14e8f-bf32-7c7e-828e-390aee00f604",
+              "01a14e8f-bf39-7129-8a7c-0a79b092c241"
+            ],
+            "engine_kind": "contract_mock",
+            "qa_rejected": 0
+          }
+        }
+      ]
+    }
+  ],
+  "media_assets": [
+    {
+      "id": "01a14e8f-bf32-7c7e-828e-390aee00f604",
+      "kind": "image",
+      "mime_type": "image/png",
+      "bytes": 201,
+      "width": 64,
+      "height": 80,
+      "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+      "status": "valid",
+      "status_reason": null,
+      "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+      "engine_kind": "contract_mock",
+      "qa_summary": {
+        "flagged": false,
+        "reasons": [],
+        "decision": "valid",
+        "outcomes": [
+          {
+            "score": 0.9,
+            "passed": true,
+            "reason": null,
+            "on_fail": "reject",
+            "check_key": "mock.identity_similarity",
+            "threshold_id": "01a14e8f-bdc9-7d54-bfb1-e67e52e8b798"
+          }
+        ],
+        "engine_qa": [
+          {
+            "check": "mock.identity_similarity",
+            "score": 0.9,
+            "passed": null,
+            "details": {
+              "note": "contract mock: synthetic score"
+            },
+            "threshold": null
+          }
+        ],
+        "validation_scope": "contract_mock"
+      },
+      "provenance": {
+        "engine": {
+          "reported": {
+            "engine_id": "contract-mock",
+            "engine_version": "1.0.0-mock"
+          },
+          "engine_id": "01a14e8f-bd2c-7b3f-9029-1d0a046b0f6f",
+          "engine_key": "ws01-mock",
+          "engine_kind": "contract_mock"
+        },
+        "attempt": 2,
+        "contract": {
+          "c2pa": {
+            "signed": false,
+            "manifest_ref": null
+          },
+          "seed": 42,
+          "models": [],
+          "engine_id": "contract-mock",
+          "workflow_key": "mock.persona_portrait",
+          "engine_version": "1.0.0-mock",
+          "engine_metadata": {
+            "color": "#781f49",
+            "adapters": [
+              "mock:lora/luna-v1"
+            ],
+            "contract_mock": true
+          },
+          "workflow_version": "1.0.0"
+        },
+        "workflow": {
+          "key": "mock.persona_portrait",
+          "version": "1.0.0",
+          "manifest_sha256": "95f1369b41bde12f65a8187a0a9e3da6270f2acd20c9ab21e46af454a137b351"
+        },
+        "request_id": "01a14e8f-bdf6-7336-bbe6-3467992b9eb7",
+        "adapter_ids": [
+          "01a14e8f-bced-7fa5-8620-2b70f7666430"
+        ],
+        "contract_mock": true,
+        "engine_job_id": "mock_mvdop4gx_2",
+        "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+        "output_metadata": {
+          "contract_mock": true
+        },
+        "persona_version_id": "01a14e8f-bc82-7651-a559-9235bf0f8cbb",
+        "reference_asset_ids": [],
+        "persona_reference_ids": [
+          "01a14e8f-bcca-7968-b691-caaf74035d6c"
+        ],
+        "iptc_digital_source_type": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"
+      },
+      "storage_key": "ws/01a14e8f-bb92-7c0f-89b2-208d17488741/inf/01a14e8f-bc2b-782d-b654-4f1a316206f3/media/e6/e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81.png",
+      "created_at": "2026-10-18T10:30:05.871Z",
+      "validation_results": [
+        {
+          "subject_id": "01a14e8f-bf32-7c7e-828e-390aee00f604",
+          "check_type": "technical",
+          "check_key": "technical.verified_download",
+          "provider": "platform",
+          "score": null,
+          "threshold": null,
+          "passed": true,
+          "advisory": false,
+          "details": {
+            "bytes": 201,
+            "width": 64,
+            "height": 80,
+            "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+            "mime_sniffed": "image/png"
+          },
+          "created_at": "2026-10-18T10:30:05.871Z"
+        },
+        {
+          "subject_id": "01a14e8f-bf32-7c7e-828e-390aee00f604",
+          "check_type": "engine_qa",
+          "check_key": "mock.identity_similarity",
+          "provider": "engine:ws01-mock",
+          "score": 0.9,
+          "threshold": null,
+          "passed": false,
+          "advisory": true,
+          "details": {
+            "note": "contract mock: synthetic score"
+          },
+          "created_at": "2026-10-18T10:30:05.871Z"
+        },
+        {
+          "subject_id": "01a14e8f-bf32-7c7e-828e-390aee00f604",
+          "check_type": "qa_threshold",
+          "check_key": "mock.identity_similarity",
+          "provider": "platform",
+          "score": 0.9,
+          "threshold": null,
+          "passed": true,
+          "advisory": false,
+          "details": {
+            "score": 0.9,
+            "passed": true,
+            "reason": null,
+            "on_fail": "reject",
+            "check_key": "mock.identity_similarity",
+            "threshold_id": "01a14e8f-bdc9-7d54-bfb1-e67e52e8b798"
+          },
+          "created_at": "2026-10-18T10:30:05.871Z"
+        }
+      ]
+    },
+    {
+      "id": "01a14e8f-bf39-7129-8a7c-0a79b092c241",
+      "kind": "image",
+      "mime_type": "image/png",
+      "bytes": 201,
+      "width": 64,
+      "height": 80,
+      "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+      "status": "valid",
+      "status_reason": null,
+      "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+      "engine_kind": "contract_mock",
+      "qa_summary": {
+        "flagged": false,
+        "reasons": [],
+        "decision": "valid",
+        "outcomes": [
+          {
+            "score": 0.9,
+            "passed": true,
+            "reason": null,
+            "on_fail": "reject",
+            "check_key": "mock.identity_similarity",
+            "threshold_id": "01a14e8f-bdc9-7d54-bfb1-e67e52e8b798"
+          }
+        ],
+        "engine_qa": [
+          {
+            "check": "mock.identity_similarity",
+            "score": 0.9,
+            "passed": null,
+            "details": {
+              "note": "contract mock: synthetic score"
+            },
+            "threshold": null
+          }
+        ],
+        "validation_scope": "contract_mock"
+      },
+      "provenance": {
+        "engine": {
+          "reported": {
+            "engine_id": "contract-mock",
+            "engine_version": "1.0.0-mock"
+          },
+          "engine_id": "01a14e8f-bd2c-7b3f-9029-1d0a046b0f6f",
+          "engine_key": "ws01-mock",
+          "engine_kind": "contract_mock"
+        },
+        "attempt": 2,
+        "contract": {
+          "c2pa": {
+            "signed": false,
+            "manifest_ref": null
+          },
+          "seed": 42,
+          "models": [],
+          "engine_id": "contract-mock",
+          "workflow_key": "mock.persona_portrait",
+          "engine_version": "1.0.0-mock",
+          "engine_metadata": {
+            "color": "#781f49",
+            "adapters": [
+              "mock:lora/luna-v1"
+            ],
+            "contract_mock": true
+          },
+          "workflow_version": "1.0.0"
+        },
+        "workflow": {
+          "key": "mock.persona_portrait",
+          "version": "1.0.0",
+          "manifest_sha256": "95f1369b41bde12f65a8187a0a9e3da6270f2acd20c9ab21e46af454a137b351"
+        },
+        "request_id": "01a14e8f-bdf6-7336-bbe6-3467992b9eb7",
+        "adapter_ids": [
+          "01a14e8f-bced-7fa5-8620-2b70f7666430"
+        ],
+        "contract_mock": true,
+        "engine_job_id": "mock_mvdop4gx_2",
+        "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+        "output_metadata": {
+          "contract_mock": true
+        },
+        "persona_version_id": "01a14e8f-bc82-7651-a559-9235bf0f8cbb",
+        "reference_asset_ids": [],
+        "persona_reference_ids": [
+          "01a14e8f-bcca-7968-b691-caaf74035d6c"
+        ],
+        "iptc_digital_source_type": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"
+      },
+      "storage_key": "ws/01a14e8f-bb92-7c0f-89b2-208d17488741/inf/01a14e8f-bc2b-782d-b654-4f1a316206f3/media/e6/e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81.png",
+      "created_at": "2026-10-18T10:30:05.871Z",
+      "validation_results": [
+        {
+          "subject_id": "01a14e8f-bf39-7129-8a7c-0a79b092c241",
+          "check_type": "technical",
+          "check_key": "technical.verified_download",
+          "provider": "platform",
+          "score": null,
+          "threshold": null,
+          "passed": true,
+          "advisory": false,
+          "details": {
+            "bytes": 201,
+            "width": 64,
+            "height": 80,
+            "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+            "mime_sniffed": "image/png"
+          },
+          "created_at": "2026-10-18T10:30:05.871Z"
+        },
+        {
+          "subject_id": "01a14e8f-bf39-7129-8a7c-0a79b092c241",
+          "check_type": "engine_qa",
+          "check_key": "mock.identity_similarity",
+          "provider": "engine:ws01-mock",
+          "score": 0.9,
+          "threshold": null,
+          "passed": false,
+          "advisory": true,
+          "details": {
+            "note": "contract mock: synthetic score"
+          },
+          "created_at": "2026-10-18T10:30:05.871Z"
+        },
+        {
+          "subject_id": "01a14e8f-bf39-7129-8a7c-0a79b092c241",
+          "check_type": "qa_threshold",
+          "check_key": "mock.identity_similarity",
+          "provider": "platform",
+          "score": 0.9,
+          "threshold": null,
+          "passed": true,
+          "advisory": false,
+          "details": {
+            "score": 0.9,
+            "passed": true,
+            "reason": null,
+            "on_fail": "reject",
+            "check_key": "mock.identity_similarity",
+            "threshold_id": "01a14e8f-bdc9-7d54-bfb1-e67e52e8b798"
+          },
+          "created_at": "2026-10-18T10:30:05.871Z"
+        }
+      ]
+    }
+  ],
+  "revisions": [
+    {
+      "id": "01a14e8f-bf86-71e7-b068-efc672ed65f1",
+      "workspace_id": "01a14e8f-bb92-7c0f-89b2-208d17488741",
+      "content_item_id": "01a14e8f-bdd7-7d21-b295-471faaa0c5ec",
+      "revision": 1,
+      "caption": "Slow mornings ☕",
+      "hashtags": [
+        "#morning",
+        "#coffee"
+      ],
+      "alt_text": "AI-generated image of a woman with an auburn bob drinking coffee on a balcony",
+      "cta": null,
+      "disclosure_text": "AI-generated virtual creator",
+      "content_hash": "89c1156b42cada8fa80837479e1ebb54cc6e29eec22b880260b84b3e60754e21",
+      "created_by_type": "user",
+      "created_by_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "created_at": "2026-10-18T10:30:05.954Z",
+      "assets": [
+        {
+          "revision_id": "01a14e8f-bf86-71e7-b068-efc672ed65f1",
+          "position": 0,
+          "media_asset_id": "01a14e8f-bf32-7c7e-828e-390aee00f604",
+          "role": "primary"
+        }
+      ]
+    },
+    {
+      "id": "01a14e8f-bfc6-75a6-a3b6-00c52a32d6c7",
+      "workspace_id": "01a14e8f-bb92-7c0f-89b2-208d17488741",
+      "content_item_id": "01a14e8f-bdd7-7d21-b295-471faaa0c5ec",
+      "revision": 2,
+      "caption": "Slow mornings ☕",
+      "hashtags": [
+        "#morning",
+        "#coffee"
+      ],
+      "alt_text": "AI-generated image of a woman with an auburn bob drinking coffee on a balcony",
+      "cta": null,
+      "disclosure_text": "AI-generated virtual creator",
+      "content_hash": "89c1156b42cada8fa80837479e1ebb54cc6e29eec22b880260b84b3e60754e21",
+      "created_by_type": "user",
+      "created_by_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "created_at": "2026-10-18T10:30:06.019Z",
+      "assets": [
+        {
+          "revision_id": "01a14e8f-bfc6-75a6-a3b6-00c52a32d6c7",
+          "position": 0,
+          "media_asset_id": "01a14e8f-bf39-7129-8a7c-0a79b092c241",
+          "role": "primary"
+        }
+      ]
+    }
+  ],
+  "approvals": [
+    {
+      "id": "01a14e8f-bf97-736b-baf1-23946b9515e4",
+      "revision_id": "01a14e8f-bf86-71e7-b068-efc672ed65f1",
+      "action_type": "content.publish",
+      "status": "rejected",
+      "payload_hash": "117c2f1a740515a5fbbdade70fdb3b91ca8966c4d19aa242e732f5d51a723cd7",
+      "requested_by_type": "user",
+      "requested_by_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "required_role": "reviewer",
+      "expires_at": "2026-10-21T10:30:05.970Z",
+      "created_at": "2026-10-18T10:30:05.970Z",
+      "decided_at": "2026-10-18T10:30:05.995Z",
+      "decisions": [
+        {
+          "approval_request_id": "01a14e8f-bf97-736b-baf1-23946b9515e4",
+          "approver_user_id": "01a14e8f-bba2-7a83-972c-e9b55f7f91fd",
+          "decision": "reject",
+          "payload_hash_seen": "117c2f1a740515a5fbbdade70fdb3b91ca8966c4d19aa242e732f5d51a723cd7",
+          "comment": "Pose looks unnatural; use the second render.",
+          "decided_at": "2026-10-18T10:30:05.995Z"
+        }
+      ]
+    },
+    {
+      "id": "01a14e8f-bfd8-7d1a-88a9-f786c53e9553",
+      "revision_id": "01a14e8f-bfc6-75a6-a3b6-00c52a32d6c7",
+      "action_type": "content.publish",
+      "status": "approved",
+      "payload_hash": "97955505b14c232ef5b1f356e453e11914013f68b09272e28a2e7ea507c626f4",
+      "requested_by_type": "user",
+      "requested_by_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "required_role": "reviewer",
+      "expires_at": "2026-10-21T10:30:06.036Z",
+      "created_at": "2026-10-18T10:30:06.036Z",
+      "decided_at": "2026-10-18T10:30:06.119Z",
+      "decisions": [
+        {
+          "approval_request_id": "01a14e8f-bfd8-7d1a-88a9-f786c53e9553",
+          "approver_user_id": "01a14e8f-bba2-7a83-972c-e9b55f7f91fd",
+          "decision": "approve",
+          "payload_hash_seen": "97955505b14c232ef5b1f356e453e11914013f68b09272e28a2e7ea507c626f4",
+          "comment": "On-brand, disclosure present.",
+          "decided_at": "2026-10-18T10:30:06.119Z"
+        }
+      ]
+    }
+  ],
+  "publications": [
+    {
+      "id": "01a14e8f-c03b-784b-898f-2c9dbcbcb4cf",
+      "status": "scheduled",
+      "scheduled_for": "2026-10-18T11:30:06.097Z",
+      "published_at": null,
+      "authorized_content_hash": "89c1156b42cada8fa80837479e1ebb54cc6e29eec22b880260b84b3e60754e21",
+      "authorization_kind": "human_approval",
+      "approval_request_id": "01a14e8f-bfd8-7d1a-88a9-f786c53e9553",
+      "external_post_id": null,
+      "permalink": null,
+      "last_error": null,
+      "revision_id": "01a14e8f-bfc6-75a6-a3b6-00c52a32d6c7",
+      "channel": {
+        "id": "01a14e8f-c00c-7f6b-b936-51bdda95a714",
+        "kind": "instagram_account",
+        "external_id": "17841400000000001",
+        "username": "luna.vale"
+      },
+      "account": {
+        "id": "01a14e8f-bffc-770e-925f-6d6d02dc3d93",
+        "provider": "instagram",
+        "external_account_id": "17841400000000001",
+        "display_name": "@luna.vale (test)"
+      }
+    }
+  ],
+  "cost": {
+    "gpu_seconds": 0,
+    "wall_seconds": 0.043,
+    "attempts": 2,
+    "note": "Engine-reported GPU time. Currency cost is attributed from measured energy and amortisation (docs/12) once those are recorded."
+  },
+  "engagement": null,
+  "revenue": null,
+  "audit": [
+    {
+      "id": 20,
+      "occurred_at": "2026-10-18T10:30:05.525Z",
+      "actor_type": "user",
+      "actor_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "action": "content.item_create",
+      "subject_type": "content_item",
+      "subject_id": "01a14e8f-bdd7-7d21-b295-471faaa0c5ec",
+      "approval_request_id": null,
+      "request_id": "01a14e8f-bdd0-7af3-948a-21d298ed05f7",
+      "trace_id": null,
+      "changes": {
+        "after": {
+          "brief": {
+            "mood": "calm",
+            "scene": "morning coffee on a sunny balcony"
+          },
+          "format": "ig_image",
+          "target_rating": "general"
+        }
+      },
+      "metadata": {}
+    },
+    {
+      "id": 21,
+      "occurred_at": "2026-10-18T10:30:05.539Z",
+      "actor_type": "user",
+      "actor_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "action": "visual_job.create",
+      "subject_type": "visual_job",
+      "subject_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+      "approval_request_id": null,
+      "request_id": "01a14e8f-bddd-7575-9089-17fd6d797953",
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "purpose": "feed_photo",
+        "workflow": "mock.persona_portrait@1.0.0",
+        "requested_by": "user:01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+        "content_item_id": "01a14e8f-bdd7-7d21-b295-471faaa0c5ec"
+      }
+    },
+    {
+      "id": 22,
+      "occurred_at": "2026-10-18T10:30:05.871Z",
+      "actor_type": "system",
+      "actor_id": "visual-worker",
+      "action": "media_asset.ingest",
+      "subject_type": "media_asset",
+      "subject_id": "01a14e8f-bf32-7c7e-828e-390aee00f604",
+      "approval_request_id": null,
+      "request_id": null,
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+        "flagged": false,
+        "qa_reasons": [],
+        "engine_kind": "contract_mock",
+        "qa_decision": "valid",
+        "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d"
+      }
+    },
+    {
+      "id": 23,
+      "occurred_at": "2026-10-18T10:30:05.871Z",
+      "actor_type": "system",
+      "actor_id": "visual-worker",
+      "action": "media_asset.ingest",
+      "subject_type": "media_asset",
+      "subject_id": "01a14e8f-bf39-7129-8a7c-0a79b092c241",
+      "approval_request_id": null,
+      "request_id": null,
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+        "flagged": false,
+        "qa_reasons": [],
+        "engine_kind": "contract_mock",
+        "qa_decision": "valid",
+        "visual_job_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d"
+      }
+    },
+    {
+      "id": 24,
+      "occurred_at": "2026-10-18T10:30:05.871Z",
+      "actor_type": "system",
+      "actor_id": "visual-worker",
+      "action": "visual_job.succeeded",
+      "subject_type": "visual_job",
+      "subject_id": "01a14e8f-bdf6-70ad-8325-63096987fb5d",
+      "approval_request_id": null,
+      "request_id": null,
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "error": null,
+        "attempt": 2,
+        "workflow": "mock.persona_portrait@1.0.0",
+        "engine_id": "01a14e8f-bd2c-7b3f-9029-1d0a046b0f6f",
+        "engine_kind": "contract_mock",
+        "gpu_seconds": 0,
+        "output_asset_ids": [
+          "01a14e8f-bf32-7c7e-828e-390aee00f604",
+          "01a14e8f-bf39-7129-8a7c-0a79b092c241"
+        ]
+      }
+    },
+    {
+      "id": 25,
+      "occurred_at": "2026-10-18T10:30:05.954Z",
+      "actor_type": "user",
+      "actor_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "action": "content.revision_create",
+      "subject_type": "content_revision",
+      "subject_id": "01a14e8f-bf86-71e7-b068-efc672ed65f1",
+      "approval_request_id": null,
+      "request_id": "01a14e8f-bf7c-7707-a1c6-8f71ad19a024",
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "assets": [
+          {
+            "role": "primary",
+            "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+            "position": 0,
+            "media_asset_id": "01a14e8f-bf32-7c7e-828e-390aee00f604"
+          }
+        ],
+        "revision": 1,
+        "content_hash": "89c1156b42cada8fa80837479e1ebb54cc6e29eec22b880260b84b3e60754e21",
+        "content_item_id": "01a14e8f-bdd7-7d21-b295-471faaa0c5ec",
+        "superseded_approvals": []
+      }
+    },
+    {
+      "id": 26,
+      "occurred_at": "2026-10-18T10:30:05.970Z",
+      "actor_type": "user",
+      "actor_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "action": "approval.request",
+      "subject_type": "content_revision",
+      "subject_id": "01a14e8f-bf86-71e7-b068-efc672ed65f1",
+      "approval_request_id": "01a14e8f-bf97-736b-baf1-23946b9515e4",
+      "request_id": "01a14e8f-bf8e-7e96-8cd3-d5963526034c",
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "content_hash": "89c1156b42cada8fa80837479e1ebb54cc6e29eec22b880260b84b3e60754e21",
+        "payload_hash": "117c2f1a740515a5fbbdade70fdb3b91ca8966c4d19aa242e732f5d51a723cd7"
+      }
+    },
+    {
+      "id": 27,
+      "occurred_at": "2026-10-18T10:30:05.995Z",
+      "actor_type": "user",
+      "actor_id": "01a14e8f-bba2-7a83-972c-e9b55f7f91fd",
+      "action": "approval.reject",
+      "subject_type": "content_revision",
+      "subject_id": "01a14e8f-bf86-71e7-b068-efc672ed65f1",
+      "approval_request_id": "01a14e8f-bf97-736b-baf1-23946b9515e4",
+      "request_id": "01a14e8f-bfa8-79ef-8025-1c72e1168810",
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "comment": "Pose looks unnatural; use the second render.",
+        "decision_id": "01a14e8f-bfac-7292-8fdd-9348355f548e",
+        "payload_hash": "117c2f1a740515a5fbbdade70fdb3b91ca8966c4d19aa242e732f5d51a723cd7",
+        "resulting_status": "rejected"
+      }
+    },
+    {
+      "id": 28,
+      "occurred_at": "2026-10-18T10:30:06.019Z",
+      "actor_type": "user",
+      "actor_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "action": "content.revision_create",
+      "subject_type": "content_revision",
+      "subject_id": "01a14e8f-bfc6-75a6-a3b6-00c52a32d6c7",
+      "approval_request_id": null,
+      "request_id": "01a14e8f-bfbf-7e1a-8750-38749c33472e",
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "assets": [
+          {
+            "role": "primary",
+            "sha256": "e6e58992902d3c74a7efaf080e2491b7ed46aab014604f6edb59025566744c81",
+            "position": 0,
+            "media_asset_id": "01a14e8f-bf39-7129-8a7c-0a79b092c241"
+          }
+        ],
+        "revision": 2,
+        "content_hash": "89c1156b42cada8fa80837479e1ebb54cc6e29eec22b880260b84b3e60754e21",
+        "content_item_id": "01a14e8f-bdd7-7d21-b295-471faaa0c5ec",
+        "superseded_approvals": []
+      }
+    },
+    {
+      "id": 29,
+      "occurred_at": "2026-10-18T10:30:06.036Z",
+      "actor_type": "user",
+      "actor_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "action": "approval.request",
+      "subject_type": "content_revision",
+      "subject_id": "01a14e8f-bfc6-75a6-a3b6-00c52a32d6c7",
+      "approval_request_id": "01a14e8f-bfd8-7d1a-88a9-f786c53e9553",
+      "request_id": "01a14e8f-bfd1-7752-8c29-e5daaaf9c661",
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "content_hash": "89c1156b42cada8fa80837479e1ebb54cc6e29eec22b880260b84b3e60754e21",
+        "payload_hash": "97955505b14c232ef5b1f356e453e11914013f68b09272e28a2e7ea507c626f4"
+      }
+    },
+    {
+      "id": 32,
+      "occurred_at": "2026-10-18T10:30:06.119Z",
+      "actor_type": "user",
+      "actor_id": "01a14e8f-bba2-7a83-972c-e9b55f7f91fd",
+      "action": "approval.approve",
+      "subject_type": "content_revision",
+      "subject_id": "01a14e8f-bfc6-75a6-a3b6-00c52a32d6c7",
+      "approval_request_id": "01a14e8f-bfd8-7d1a-88a9-f786c53e9553",
+      "request_id": "01a14e8f-c024-76c1-ba36-ea95ed74379b",
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "comment": "On-brand, disclosure present.",
+        "decision_id": "01a14e8f-c02a-7f85-80f3-5753a4e7dacf",
+        "payload_hash": "97955505b14c232ef5b1f356e453e11914013f68b09272e28a2e7ea507c626f4",
+        "resulting_status": "approved"
+      }
+    },
+    {
+      "id": 33,
+      "occurred_at": "2026-10-18T10:30:06.134Z",
+      "actor_type": "user",
+      "actor_id": "01a14e8f-bb9f-7a6d-9639-c773fb7a89b2",
+      "action": "publication.schedule",
+      "subject_type": "publication",
+      "subject_id": "01a14e8f-c03b-784b-898f-2c9dbcbcb4cf",
+      "approval_request_id": "01a14e8f-bfd8-7d1a-88a9-f786c53e9553",
+      "request_id": "01a14e8f-c033-78cb-9ff1-f1f49603c831",
+      "trace_id": null,
+      "changes": null,
+      "metadata": {
+        "channel_id": "01a14e8f-c00c-7f6b-b936-51bdda95a714",
+        "revision_id": "01a14e8f-bfc6-75a6-a3b6-00c52a32d6c7",
+        "channel_kind": "instagram_account",
+        "scheduled_for": "2026-10-18T11:30:06.097Z",
+        "content_item_id": "01a14e8f-bdd7-7d21-b295-471faaa0c5ec",
+        "adapter_available": false,
+        "authorized_content_hash": "89c1156b42cada8fa80837479e1ebb54cc6e29eec22b880260b84b3e60754e21",
+        "contains_contract_mock_assets": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.aios.internal/vec/v1/job-status.schema.json",
+  "title": "Job status (response of POST /jobs, GET /jobs/{job_id}, POST /jobs/{job_id}/cancel, callback events)",
+  "type": "object",
+  "required": ["job_id", "request_id", "attempt", "workflow", "state", "created_at", "engine"],
+  "properties": {
+    "job_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" },
+    "request_id": { "$ref": "common.schema.json#/$defs/Uuid" },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "workflow": { "$ref": "common.schema.json#/$defs/WorkflowRef" },
+    "state": {
+      "type": "string",
+      "description": "Engine job state machine (README §6). Terminal: succeeded, failed, cancelled.",
+      "enum": ["queued", "running", "succeeded", "failed", "cancelling", "cancelled"]
+    },
+    "progress": { "oneOf": [{ "$ref": "common.schema.json#/$defs/Progress" }, { "type": "null" }] },
+    "created_at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+    "started_at": { "type": ["string", "null"], "format": "date-time" },
+    "finished_at": { "type": ["string", "null"], "format": "date-time" },
+    "outputs": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/Output" } },
+    "error": { "oneOf": [{ "$ref": "common.schema.json#/$defs/ErrorObject" }, { "type": "null" }] },
+    "resource_usage": { "oneOf": [{ "$ref": "common.schema.json#/$defs/ResourceUsage" }, { "type": "null" }] },
+    "engine": {
+      "type": "object",
+      "required": ["engine_id", "engine_version"],
+      "properties": {
+        "engine_id": { "type": "string" },
+        "engine_version": { "type": "string" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "succeeded" } } },
+      "then": { "required": ["outputs", "finished_at"], "properties": { "outputs": { "minItems": 1 } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "failed" } } },
+      "then": { "required": ["error", "finished_at"], "properties": { "error": { "type": "object" } } }
+    }
+  ]
+}

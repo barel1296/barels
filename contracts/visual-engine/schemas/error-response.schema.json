@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.aios.internal/vec/v1/error-response.schema.json",
+  "title": "Error response body for any non-2xx HTTP response",
+  "type": "object",
+  "required": ["error"],
+  "properties": {
+    "error": { "$ref": "common.schema.json#/$defs/ErrorObject" }
+  }
+}

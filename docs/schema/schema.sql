@@ -1,5 +1,7 @@
 -- =============================================================================
 -- AI Influencer OS — reference schema (Phase 1 design artifact, not a migration)
+-- SUPERSEDED as the source of truth by db/migrations/ (0001 = this file as
+-- reviewed; 0002 = Visual Engine Contract changes). Kept as the annotated design.
 -- Target: PostgreSQL 16+
 --
 -- Conventions

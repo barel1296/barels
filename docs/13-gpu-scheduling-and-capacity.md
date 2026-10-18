@@ -1,5 +1,7 @@
 # 13 — GPU Scheduling, Capacity Model & Admission Control
 
+> **Implementation note (2026-10-18):** the media half of the arbiter is implemented in the TypeScript platform (`apps/platform/src/modules/visual/scheduler.ts`, `dispatcher.ts`). It covers priority classes P2–P5, aging, deadlines, per-persona fair share, measured-VRAM admission and engine slots. It talks to ComfyUI only through the Visual Engine Contract, so ComfyUI-internal steps such as model swaps and degradation ladders are Track A's. The chat lane (P1) arrives with the local LLM. Every figure here is still unmeasured: see [doc 16 §4](16-implementation-status.md).
+
 > Status: Proposed (single-workstation MVP) · Related: [04 architecture](04-system-architecture.md), [14 benchmark protocol](14-benchmark-protocol.md), [15 local model stack](15-local-model-stack.md)
 >
 > **No performance numbers are asserted in this document.** Every value that sizes a budget, limit or SLO is a configuration parameter. Its value comes from a named benchmark in doc 14 (written `⟨B-id⟩`) and is recorded in `ops.benchmark_runs`. Until that benchmark runs on the production workstation, the parameter is `TBD`. The scheduler refuses to enable a workload class whose required parameters are still `TBD`.

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.aios.internal/vec/v1/job-submission.schema.json",
+  "title": "Job submission (POST /vec/v1/jobs)",
+  "description": "Idempotency: the engine MUST treat (request_id, attempt) as the idempotency key. Re-sending an identical submission returns the existing job; sending a different body under the same key returns 409 IDEMPOTENCY_CONFLICT. A retry after a failed attempt uses the same request_id with attempt+1.",
+  "type": "object",
+  "required": ["contract_version", "request_id", "attempt", "workflow", "influencer_id", "persona", "parameters", "output", "priority", "timeout_s"],
+  "properties": {
+    "contract_version": { "$ref": "common.schema.json#/$defs/ContractVersion" },
+    "request_id": { "$ref": "common.schema.json#/$defs/Uuid" },
+    "attempt": { "type": "integer", "minimum": 1, "maximum": 20 },
+    "workflow": { "$ref": "common.schema.json#/$defs/WorkflowRef" },
+    "influencer_id": { "$ref": "common.schema.json#/$defs/Uuid" },
+    "persona": { "$ref": "common.schema.json#/$defs/PersonaIdentity" },
+    "parameters": {
+      "type": "object",
+      "description": "Validated by the platform against the workflow manifest's input_schema before submission."
+    },
+    "references": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/AssetRef" },
+      "maxItems": 16
+    },
+    "adapters": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/AdapterRef" },
+      "maxItems": 8
+    },
+    "output": {
+      "type": "object",
+      "required": ["count", "transfer"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "transfer": { "$ref": "common.schema.json#/$defs/OutputTransfer" }
+      }
+    },
+    "priority": { "$ref": "common.schema.json#/$defs/PriorityClass" },
+    "timeout_s": { "type": "integer", "minimum": 1, "maximum": 86400 },
+    "deadline_at": { "type": ["string", "null"], "format": "date-time" },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "trace_id": { "type": "string", "maxLength": 128 },
+        "requested_by": { "type": "string", "maxLength": 256, "description": "Actor that caused the request (user:<id>, agent:<key>/run:<id>, system:<job>). For audit only." }
+      }
+    },
+    "callback": {
+      "type": ["object", "null"],
+      "description": "Optional. Only used when the engine advertises capabilities.callbacks=true.",
+      "properties": {
+        "url": { "type": "string", "pattern": "^https?://" },
+        "secret_id": { "type": "string" }
+      }
+    }
+  }
+}

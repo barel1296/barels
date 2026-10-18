@@ -1,0 +1,8 @@
+{
+  "status": "busy",
+  "vram_total_mb": null,
+  "vram_in_use_mb": null,
+  "loaded": ["opaque-model-id"],
+  "running_job_ids": ["job_01J9ZB5Q2K"],
+  "queue_depth": 0
+}

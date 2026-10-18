@@ -1,0 +1,21 @@
+{
+  "contract_version": "1.0",
+  "request_id": "00000000-0000-4000-8000-00000000c006",
+  "attempt": 1,
+  "workflow": { "key": "__conformance__.solid_color", "version": "1.0.0" },
+  "influencer_id": "00000000-0000-4000-8000-0000000000a1",
+  "persona": {
+    "influencer_id": "00000000-0000-4000-8000-0000000000a1",
+    "persona_version_id": "00000000-0000-4000-8000-0000000000b1",
+    "persona_version": 1,
+    "reference_assets": [],
+    "adapters": []
+  },
+  "parameters": { "color": "#3366cc", "width": 64, "height": 80, "delay_ms": 0 },
+  "references": [],
+  "adapters": [],
+  "output": { "count": 2, "transfer": "http_download" },
+  "priority": "maintenance",
+  "timeout_s": 60,
+  "trace": { "trace_id": "conformance-c06", "requested_by": "system:conformance" }
+}

@@ -1,0 +1,22 @@
+{
+  "job_id": "job_01J9ZB5Q2K",
+  "request_id": "0192b4d6-5d2a-7c4e-9a10-4b2f1e8c7d01",
+  "attempt": 1,
+  "workflow": { "key": "instagram_photo", "version": "1.0.0" },
+  "state": "failed",
+  "progress": { "fraction": 0.3, "stage": "render", "message": null },
+  "created_at": "2026-10-18T10:00:00Z",
+  "started_at": "2026-10-18T10:00:03Z",
+  "finished_at": "2026-10-18T10:00:41Z",
+  "outputs": [],
+  "error": {
+    "code": "RESOURCE_EXHAUSTED",
+    "class": "resource",
+    "message": "GPU out of memory during render",
+    "retryable": true,
+    "retry_after_ms": 30000,
+    "details": { "stage": "render" }
+  },
+  "resource_usage": { "gpu_seconds": 38.0, "wall_seconds": 41.0, "vram_peak_mb": null },
+  "engine": { "engine_id": "ws01-comfyui", "engine_version": "0.1.0" }
+}

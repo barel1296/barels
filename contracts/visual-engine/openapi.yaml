@@ -1,0 +1,266 @@
+openapi: 3.1.0
+info:
+  title: Visual Engine Contract (VEC)
+  version: 1.0.0
+  summary: Stable internal API between the AI Influencer Platform (Track B) and the visual engine (Track A).
+  description: |
+    The visual engine (implemented by Track A on top of ComfyUI) exposes this API.
+    The platform's ComfyUI integration gateway (Track B) is the only client.
+
+    * Business logic never sees ComfyUI node graphs, model names or engine internals:
+      only workflows (key + semver), typed parameters, references, outputs and errors.
+    * Schemas live in `schemas/*.json` (JSON Schema 2020-12) and are the single source of truth.
+    * Normative rules (idempotency, state machine, error classes, compatibility, GPU coordination)
+      are in README.md. Where this file and README.md disagree, README.md wins and this file is a bug.
+
+    Contract version in this document: **1.0**. Engines advertise supported versions in
+    `GET /vec/v1/engine` (`contract_versions`).
+  license:
+    name: Proprietary — internal use
+servers:
+  - url: http://127.0.0.1:8188/vec/v1
+    description: Engine on the same workstation (example port; configured per engine)
+security:
+  - engineToken: []
+tags:
+  - name: engine
+  - name: workflows
+  - name: jobs
+  - name: resources
+paths:
+  /health:
+    get:
+      tags: [engine]
+      operationId: getHealth
+      summary: Liveness. Must not require GPU work. Authentication still required.
+      responses:
+        '200':
+          description: Engine process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+        default: { $ref: '#/components/responses/Error' }
+  /engine:
+    get:
+      tags: [engine]
+      operationId: getEngineInfo
+      summary: Engine identity, supported contract versions and capabilities
+      responses:
+        '200':
+          description: Engine info
+          content:
+            application/json:
+              schema: { $ref: './schemas/engine-info.schema.json' }
+              examples:
+                default: { externalValue: './examples/engine-info.json' }
+        default: { $ref: '#/components/responses/Error' }
+  /workflows:
+    get:
+      tags: [workflows]
+      operationId: listWorkflows
+      summary: Capability discovery — all workflow versions this engine can execute
+      responses:
+        '200':
+          description: Workflow catalogue
+          content:
+            application/json:
+              schema: { $ref: './schemas/workflow-list.schema.json' }
+              examples:
+                default: { externalValue: './examples/workflow-list.json' }
+        default: { $ref: '#/components/responses/Error' }
+  /workflows/{workflow_key}/versions/{version}:
+    get:
+      tags: [workflows]
+      operationId: getWorkflowManifest
+      summary: Full manifest of one workflow version (immutable)
+      parameters:
+        - { name: workflow_key, in: path, required: true, schema: { $ref: './schemas/common.schema.json#/$defs/WorkflowKey' } }
+        - { name: version, in: path, required: true, schema: { $ref: './schemas/common.schema.json#/$defs/Semver' } }
+      responses:
+        '200':
+          description: Manifest
+          content:
+            application/json:
+              schema: { $ref: './schemas/workflow-manifest.schema.json' }
+              examples:
+                conformance: { externalValue: './examples/workflow-manifest.conformance-solid-color.json' }
+                instagram_photo: { externalValue: './examples/workflow-manifest.instagram-photo.json' }
+        '404': { $ref: '#/components/responses/Error' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs:
+    post:
+      tags: [jobs]
+      operationId: submitJob
+      summary: Submit an asynchronous generation job (idempotent on request_id + attempt)
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: MUST equal `<request_id>:<attempt>` from the body.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas/job-submission.schema.json' }
+            examples:
+              default: { externalValue: './examples/job-submission.json' }
+      responses:
+        '202':
+          description: Accepted; job created (state queued or running)
+          content:
+            application/json:
+              schema: { $ref: './schemas/job-status.schema.json' }
+              examples:
+                queued: { externalValue: './examples/job-status.queued.json' }
+        '200':
+          description: Idempotent replay of an identical submission; returns the existing job in its current state
+          content:
+            application/json:
+              schema: { $ref: './schemas/job-status.schema.json' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/ErrorRetryAfter' }
+        '503': { $ref: '#/components/responses/ErrorRetryAfter' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/{job_id}:
+    get:
+      tags: [jobs]
+      operationId: getJob
+      summary: Job status, progress, outputs or error
+      parameters:
+        - { $ref: '#/components/parameters/JobId' }
+      responses:
+        '200':
+          description: Current job status
+          content:
+            application/json:
+              schema: { $ref: './schemas/job-status.schema.json' }
+              examples:
+                running: { externalValue: './examples/job-status.running.json' }
+                succeeded: { externalValue: './examples/job-status.succeeded.json' }
+                failed: { externalValue: './examples/job-status.failed.json' }
+        '404': { $ref: '#/components/responses/Error' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/{job_id}/cancel:
+    post:
+      tags: [jobs]
+      operationId: cancelJob
+      summary: Request cancellation. Idempotent. Terminal jobs are returned unchanged.
+      parameters:
+        - { $ref: '#/components/parameters/JobId' }
+      responses:
+        '200':
+          description: Job status after the cancel request (cancelling, cancelled, or an unchanged terminal state)
+          content:
+            application/json:
+              schema: { $ref: './schemas/job-status.schema.json' }
+              examples:
+                cancelled: { externalValue: './examples/job-status.cancelled.json' }
+        '404': { $ref: '#/components/responses/Error' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/{job_id}/outputs/{output_id}:
+    get:
+      tags: [jobs]
+      operationId: downloadOutput
+      summary: Download one output (binary). Available until the job is deleted by engine retention (≥ 24 h after finish).
+      parameters:
+        - { $ref: '#/components/parameters/JobId' }
+        - { name: output_id, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' } }
+      responses:
+        '200':
+          description: Output bytes. Content-Type equals the output mime_type; X-Content-SHA256 equals output sha256.
+          headers:
+            X-Content-SHA256: { schema: { $ref: './schemas/common.schema.json#/$defs/Sha256' } }
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+            video/mp4: { schema: { type: string, format: binary } }
+            video/webm: { schema: { type: string, format: binary } }
+        '404': { $ref: '#/components/responses/Error' }
+        default: { $ref: '#/components/responses/Error' }
+  /resources:
+    get:
+      tags: [resources]
+      operationId: getResources
+      summary: GPU/resource state for the platform scheduler
+      responses:
+        '200':
+          description: Resource state
+          content:
+            application/json:
+              schema: { $ref: './schemas/resources.schema.json#/$defs/ResourceState' }
+              examples:
+                default: { externalValue: './examples/resources.json' }
+        default: { $ref: '#/components/responses/Error' }
+  /resources/release:
+    post:
+      tags: [resources]
+      operationId: releaseResources
+      summary: Ask the engine to free GPU memory (e.g. before the scheduler grows the chat lane)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas/resources.schema.json#/$defs/ReleaseRequest' }
+      responses:
+        '200':
+          description: Release outcome
+          content:
+            application/json:
+              schema: { $ref: './schemas/resources.schema.json#/$defs/ReleaseResponse' }
+        '409': { $ref: '#/components/responses/Error' }
+        default: { $ref: '#/components/responses/Error' }
+webhooks:
+  jobEvent:
+    post:
+      summary: OPTIONAL (capabilities.callbacks=true). Engine pushes job status changes to the platform.
+      description: |
+        Sent to `callback.url` from the submission. Signed with HMAC-SHA256:
+        header `X-VEC-Signature: t=<unix_seconds>,v1=<hex(hmac_sha256(secret, t + "." + raw_body))>`.
+        The platform rejects signatures older than 300 s. Callbacks are an optimisation:
+        the platform always reconciles by polling GET /jobs/{job_id}.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './schemas/job-status.schema.json' }
+      responses:
+        '204': { description: Accepted }
+components:
+  securitySchemes:
+    engineToken:
+      type: http
+      scheme: bearer
+      description: Per-engine secret token (≥ 32 random bytes, base64url), provisioned out of band and rotated on staff change. Engines bind to localhost/LAN only.
+  parameters:
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,128}$' }
+  responses:
+    Error:
+      description: Error (see README error table)
+      content:
+        application/json:
+          schema: { $ref: './schemas/error-response.schema.json' }
+          examples:
+            parameter_validation: { externalValue: './examples/error.parameter-validation.json' }
+    ErrorRetryAfter:
+      description: Retryable error; honour Retry-After
+      headers:
+        Retry-After: { schema: { type: integer }, description: Seconds }
+      content:
+        application/json:
+          schema: { $ref: './schemas/error-response.schema.json' }
+          examples:
+            busy: { externalValue: './examples/error.engine-busy.json' }

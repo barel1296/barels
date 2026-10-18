@@ -52,7 +52,9 @@
 |---|---|---|---|---|
 | Memory / asset retrieval | **Qwen3-Embedding-0.6B** (1024 dims) + Qwen3-Reranker-0.6B | bge-m3 (MIT, R) | Apache-2.0 (R) | 1024 dims are indexable by pgvector HNSW/IVFFlat (≤ 2000 for `vector`, V). Avoid Jina v3/v4 (non-commercial, R). Placement on CPU vs. GPU decided by B-AUX-3. |
 
-### 2.4 Image generation & editing (ComfyUI)
+### 2.4 Image generation & editing (ComfyUI) — advisory to Track A
+
+> **Ownership (2026-10-18 update):** image/video model selection, ComfyUI workflows, LoRA training and identity consistency belong **exclusively to Track A** (ChatGPT/Codex). This section is **advisory input** to Track A. The platform hardcodes none of these models; it calls the visual engine only through [`contracts/visual-engine`](../contracts/visual-engine/README.md). The licence gate (§5) still applies: Track A provides licence evidence when a workflow version is approved on the platform.
 
 | Role | Primary | Bake-off candidates | Licence | Notes |
 |---|---|---|---|---|
@@ -87,7 +89,9 @@ If any of these is ever approved, `inference.licenses.revenue_threshold` is set,
 | ACE++, DreamO, UNO/USO | Depend on FLUX.1 dev/Fill bases (V/A) |
 | NudeNet | AGPL repo + Ultralytics models (V) |
 
-### 2.5 Video, lip-sync, voice (ComfyUI)
+### 2.5 Video, lip-sync, voice (ComfyUI) — advisory to Track A
+
+> **Ownership (2026-10-18 update):** image/video model selection, ComfyUI workflows, LoRA training and identity consistency belong **exclusively to Track A** (ChatGPT/Codex). This section is **advisory input** to Track A. The platform hardcodes none of these models; it calls the visual engine only through [`contracts/visual-engine`](../contracts/visual-engine/README.md). The licence gate (§5) still applies: Track A provides licence evidence when a workflow version is approved on the platform.
 
 | Role | Primary | Alternatives | Licence | Notes |
 |---|---|---|---|---|
@@ -117,6 +121,8 @@ If any of these is ever approved, `inference.licenses.revenue_threshold` is set,
 | Wan 2.5 / 2.6 / 2.7 / 3.0 | Not open weights (cloud-only) (E/R) |
 
 ### 2.6 Training & tooling
+
+> LoRA/adapter training tooling in this section is Track A's. The platform registers the resulting adapters only by opaque `engine_ref` (`POST /v1/influencers/{id}/adapters`).
 
 | Tool | Licence | Use |
 |---|---|---|

@@ -1,0 +1,59 @@
+name: platform-ci
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/platform
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-superuser-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TEST_PG_ADMIN_URL: postgres://postgres:ci-superuser-password@127.0.0.1:5432/postgres
+      TEST_PG_ROLE_PASSWORD: ci-role-password
+      TEST_EVIDENCE_DIR: test-results
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/platform/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests (contract artifacts, scheduler, state machine, crypto, QA)
+        run: npm run test:unit
+      - name: Integration tests (PostgreSQL 16, production role model)
+        run: npm run test:integration
+      - name: End-to-end tests (vertical slice + failure handling against the CONTRACT MOCK)
+        run: npm run test:e2e
+      - name: Conformance runner against the contract mock (CLI)
+        run: |
+          export MOCK_ENGINE_TOKEN="$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 43)"
+          npm run mock-engine -- --port 18188 &
+          for i in $(seq 1 30); do curl -sf -H "Authorization: Bearer $MOCK_ENGINE_TOKEN" http://127.0.0.1:18188/vec/v1/health && break; sleep 1; done
+          npm run conformance -- --engine-url http://127.0.0.1:18188/vec/v1 --token "$MOCK_ENGINE_TOKEN" --report test-results/conformance-contract-mock.json
+      - name: Build
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: apps/platform/test-results/

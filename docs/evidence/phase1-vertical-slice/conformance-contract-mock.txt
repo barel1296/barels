@@ -1,0 +1,21 @@
+Visual Engine Contract v1 conformance — http://127.0.0.1:18189/vec/v1
+engine: contract-mock 1.0.0-mock (engine_kind=contract_mock)
+  PASS  C01  auth required                  401 UNAUTHORIZED
+  PASS  C02  engine info                    contract-mock 1.0.0-mock (contract_mock)
+  PASS  C03  workflow discovery             manifest_sha256 e8b0b14e8d9c… verified
+  PASS  C04  manifest valid                 schema-valid; input_schema matches normative example
+  PASS  C05  unknown workflow               404 WORKFLOW_NOT_FOUND
+  PASS  C06  submit and succeed             2 outputs downloaded and verified
+  PASS  C07  idempotent replay              replay → same job mock_mvdogjft_1
+  PASS  C08  idempotency conflict           409 IDEMPOTENCY_CONFLICT
+  PASS  C09  new attempt                    new job mock_mvdogjjh_2
+  PASS  C10  parameter validation           422 PARAMETER_VALIDATION_FAILED
+  PASS  C11  unsupported contract version   400 UNSUPPORTED_CONTRACT_VERSION
+  PASS  C12  cancellation                   cancelled while running
+  PASS  C13  cancel terminal job            terminal job unchanged
+  PASS  C14  unknown job                    404 JOB_NOT_FOUND
+  PASS  C15  resources                      status ready
+  PASS  C16  status schema                  14 status payloads valid
+
+16/16 passed — CONFORMANT
+Engine is the contract test adapter: this run validates the contract fixtures and runner only, NOT a real visual engine.

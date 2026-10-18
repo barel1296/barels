@@ -1,0 +1,12 @@
+{
+  "workflows": [
+    {
+      "workflow_key": "instagram_photo",
+      "version": "1.0.0",
+      "task": "generate_image",
+      "title": "Instagram persona photo (EXAMPLE ONLY)",
+      "deprecated": false,
+      "manifest_sha256": "13b54e62f2fcfa333adb75699902cb6f53e517e121caee0138aa2967e14b190b"
+    }
+  ]
+}

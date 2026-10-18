@@ -9,7 +9,7 @@
 | C1 | **20–30 personas** at initial deployment | Shared inference services; per-persona configuration (`identity.persona_runtime_config`); fair-share GPU scheduling; gated rollout 1 → 5 → 10 → 20–30 (doc 10) |
 | C2 | **One Windows workstation, RTX 5090 Laptop GPU (24 GB VRAM)** | Single-host topology (doc 04); a GPU Arbiter with measured VRAM budgets (doc 13); single-host resilience design (doc 09 §9, §11) |
 | C3 | **All inference local:** conversations, images, video, embeddings, moderation, agents. No paid AI APIs, no managed GPUs. | Local model stack chosen licence-first (doc 15); Inference Host + ComfyUI + local LLM engine |
-| C4 | **ComfyUI is the primary media engine** | Versioned ComfyUI workflows with measured profiles (`inference.workflows`) |
+| C4 | **ComfyUI is the primary media engine** | Versioned workflows behind the [Visual Engine Contract](../contracts/visual-engine/README.md) (`inference.visual_workflows`: manifests with measured resource figures; ComfyUI internals are Track A's) |
 | C5 | No unnecessary microservices, no Kubernetes | Modular monolith + one Inference Host; systemd units in WSL2 |
 | C6 | Distinguish configured personas from concurrent users; **no invented benchmarks** | Separate capacity models (doc 13 §7); every sizing value comes from the benchmark protocol (doc 14) |
 | C7 | Preserve security, consent, compliance, payment-integrity and audit requirements | Unchanged requirements. Payments made GPU-independent; outage recovery via Telegram retention + reconciliation. |

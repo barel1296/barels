@@ -1,0 +1,39 @@
+{
+  "job_id": "job_01J9ZB5Q2K",
+  "request_id": "0192b4d6-5d2a-7c4e-9a10-4b2f1e8c7d01",
+  "attempt": 1,
+  "workflow": { "key": "instagram_photo", "version": "1.0.0" },
+  "state": "succeeded",
+  "progress": { "fraction": 1, "stage": "done", "message": null },
+  "created_at": "2026-10-18T10:00:00Z",
+  "started_at": "2026-10-18T10:00:03Z",
+  "finished_at": "2026-10-18T10:01:30Z",
+  "outputs": [
+    {
+      "output_id": "o1",
+      "kind": "image",
+      "mime_type": "image/png",
+      "width": 1080,
+      "height": 1350,
+      "duration_ms": null,
+      "bytes": 2483312,
+      "sha256": "5d41402abc4b2a76b9719d911017c5925d41402abc4b2a76b9719d911017c592",
+      "download_url": "/vec/v1/jobs/job_01J9ZB5Q2K/outputs/o1",
+      "provenance": {
+        "engine_id": "ws01-comfyui",
+        "engine_version": "0.1.0",
+        "workflow_key": "instagram_photo",
+        "workflow_version": "1.0.0",
+        "models": [{ "role": "base", "ref": "opaque-model-id", "license_ref": "opaque-license-id" }],
+        "seed": 1234567,
+        "c2pa": { "signed": false, "manifest_ref": null },
+        "engine_metadata": {}
+      },
+      "qa": [{ "check": "identity_similarity", "score": 0.91, "passed": true, "threshold": 0.85, "details": {} }],
+      "metadata": {}
+    }
+  ],
+  "error": null,
+  "resource_usage": { "gpu_seconds": 84.2, "wall_seconds": 87.0, "vram_peak_mb": null },
+  "engine": { "engine_id": "ws01-comfyui", "engine_version": "0.1.0" }
+}

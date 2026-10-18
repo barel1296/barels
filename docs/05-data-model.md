@@ -184,7 +184,7 @@ Each transition updates the linked entitlement(s) in the **same transaction**. I
 | I10 | Active products, personas, policies and agent definitions must have an approver | CHECK constraints | Constraint present |
 | I11 | A model can be approved only under a **reviewed licence that permits commercial use of weights and outputs** | Trigger `inference.assert_model_license` | ✅ rejected (non-commercial and unreviewed) |
 | I12 | A GPU mode can't be activated with unmeasured budgets | CHECK on `inference.gpu_modes` | ✅ rejected |
-| I13 | A ComfyUI workflow can't be approved without a measured peak VRAM | CHECK on `inference.workflows` | ✅ rejected |
+| I13 | A registered workflow version can't change its manifest (unmeasured `vram_mb_peak` is allowed but makes the job take the whole media lane) | Trigger on `inference.visual_workflows` (migration 0002, replaces `inference.workflows`) | ✅ rejected |
 | I14 | GPU jobs are idempotent | UNIQUE `idempotency_key` | ✅ rejected duplicate |
 | I15 | Reply allowances are consumed atomically and never exceed the limit | Conditional `UPDATE … WHERE used < daily_limit` | ✅ second consume returns 0 rows |
 

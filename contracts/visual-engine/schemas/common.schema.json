@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.aios.internal/vec/v1/common.schema.json",
+  "title": "Visual Engine Contract v1 — shared definitions",
+  "description": "Shared types for the Visual Engine Contract (VEC). Objects are tolerant readers: unknown properties MUST be ignored by receivers (forward compatibility within a contract MAJOR version). Strict validation applies only to workflow `parameters`, which are validated by each workflow's own input_schema.",
+  "$defs": {
+    "Uuid": { "type": "string", "format": "uuid" },
+    "Timestamp": { "type": "string", "format": "date-time" },
+    "Sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "ContractVersion": {
+      "type": "string",
+      "description": "MAJOR.MINOR of the Visual Engine Contract.",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    },
+    "Semver": {
+      "type": "string",
+      "description": "Workflow version, Semantic Versioning 2.0.0 (no build metadata).",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "WorkflowKey": {
+      "type": "string",
+      "description": "Stable identifier of a workflow family. Lowercase, digits, underscore and dot. The prefix '__conformance__.' is reserved for contract conformance workflows.",
+      "pattern": "^[a-z_][a-z0-9_.]{1,80}$"
+    },
+    "WorkflowRef": {
+      "type": "object",
+      "required": ["key", "version"],
+      "properties": {
+        "key": { "$ref": "#/$defs/WorkflowKey" },
+        "version": { "$ref": "#/$defs/Semver" }
+      }
+    },
+    "Task": {
+      "type": "string",
+      "description": "What a workflow does, independent of how. Platform business logic only ever reasons about tasks, never about models or node graphs.",
+      "enum": ["generate_image", "edit_image", "upscale_image", "generate_video", "upscale_video", "other"]
+    },
+    "PriorityClass": {
+      "type": "string",
+      "description": "Platform scheduling class. P0 (payments) and P1 (fan conversations) never reach the visual engine. time_sensitive=P2, scheduled_image=P3, video=P4, maintenance=P5.",
+      "enum": ["time_sensitive", "scheduled_image", "video", "maintenance"]
+    },
+    "OutputTransfer": {
+      "type": "string",
+      "description": "How outputs are handed to the platform. http_download is mandatory for v1 engines; file_uri is optional and only valid inside a shared content root configured on both sides.",
+      "enum": ["http_download", "file_uri"]
+    },
+    "AssetRef": {
+      "type": "object",
+      "description": "A platform-owned asset the engine may read (reference image, previous output to edit). The platform guarantees sha256 integrity; the engine SHOULD verify it after download.",
+      "required": ["asset_id", "role", "sha256", "mime_type", "uri"],
+      "properties": {
+        "asset_id": { "$ref": "#/$defs/Uuid" },
+        "role": {
+          "type": "string",
+          "description": "Semantic role. Known values: face, identity, outfit, pose, environment, style, source (image to edit), mask. Engines ignore roles they do not use.",
+          "pattern": "^[a-z][a-z0-9_]{0,40}$"
+        },
+        "sha256": { "$ref": "#/$defs/Sha256" },
+        "mime_type": { "type": "string" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "uri": {
+          "type": "string",
+          "description": "Short-lived signed http(s) URL served by the platform, or file:// URI inside the shared content root.",
+          "pattern": "^(https?://|file://)"
+        },
+        "expires_at": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "AdapterRef": {
+      "type": "object",
+      "description": "Optional identity/style adapter (e.g. a character LoRA) produced and registered by the visual track. engine_ref is opaque to the platform.",
+      "required": ["adapter_id", "kind", "engine_ref"],
+      "properties": {
+        "adapter_id": { "$ref": "#/$defs/Uuid" },
+        "kind": { "type": "string", "enum": ["lora", "other"] },
+        "engine_ref": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "weight": { "type": "number", "minimum": -4, "maximum": 4 }
+      }
+    },
+    "PersonaIdentity": {
+      "type": "object",
+      "description": "Who the content is of. Persona identity is provided by reference, never embedded model weights.",
+      "required": ["influencer_id", "persona_version_id", "persona_version"],
+      "properties": {
+        "influencer_id": { "$ref": "#/$defs/Uuid" },
+        "persona_version_id": { "$ref": "#/$defs/Uuid" },
+        "persona_version": { "type": "integer", "minimum": 1 },
+        "identity_package_ref": {
+          "type": ["string", "null"],
+          "description": "Opaque reference to an identity package registered by the visual track (if any).",
+          "maxLength": 512
+        },
+        "visual_traits": {
+          "type": "object",
+          "description": "Structured visual identity from the approved persona version (hair, eyes, marks, age presentation, style). Advisory input for prompt construction inside the workflow."
+        },
+        "reference_assets": { "type": "array", "items": { "$ref": "#/$defs/AssetRef" }, "maxItems": 32 },
+        "adapters": { "type": "array", "items": { "$ref": "#/$defs/AdapterRef" }, "maxItems": 8 }
+      }
+    },
+    "Progress": {
+      "type": "object",
+      "properties": {
+        "fraction": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "stage": { "type": ["string", "null"], "maxLength": 80 },
+        "message": { "type": ["string", "null"], "maxLength": 500 }
+      }
+    },
+    "QaResult": {
+      "type": "object",
+      "description": "Engine-side quality measurement. Advisory: the platform applies its own per-persona thresholds and makes the pass/fail decision.",
+      "required": ["check"],
+      "properties": {
+        "check": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{0,63}$" },
+        "score": { "type": ["number", "null"] },
+        "passed": { "type": ["boolean", "null"] },
+        "threshold": { "type": ["number", "null"] },
+        "details": { "type": "object" }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "required": ["engine_id", "engine_version", "workflow_key", "workflow_version"],
+      "properties": {
+        "engine_id": { "type": "string" },
+        "engine_version": { "type": "string" },
+        "workflow_key": { "$ref": "#/$defs/WorkflowKey" },
+        "workflow_version": { "$ref": "#/$defs/Semver" },
+        "models": {
+          "type": "array",
+          "description": "Opaque model/adapter identifiers and hashes used (for audit and licence tracing). The platform stores but never interprets them.",
+          "items": {
+            "type": "object",
+            "required": ["role", "ref"],
+            "properties": {
+              "role": { "type": "string" },
+              "ref": { "type": "string" },
+              "sha256": { "$ref": "#/$defs/Sha256" },
+              "license_ref": { "type": "string" }
+            }
+          }
+        },
+        "seed": { "type": ["integer", "string", "null"] },
+        "c2pa": {
+          "type": "object",
+          "properties": {
+            "signed": { "type": "boolean" },
+            "manifest_ref": { "type": ["string", "null"] }
+          }
+        },
+        "engine_metadata": { "type": "object" }
+      }
+    },
+    "Output": {
+      "type": "object",
+      "required": ["output_id", "kind", "mime_type", "bytes", "sha256", "provenance"],
+      "properties": {
+        "output_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "kind": { "type": "string", "enum": ["image", "video"] },
+        "mime_type": { "type": "string", "enum": ["image/png", "image/jpeg", "image/webp", "video/mp4", "video/webm"] },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "duration_ms": { "type": ["integer", "null"], "minimum": 1 },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/Sha256" },
+        "download_url": { "type": "string", "description": "Absolute URL or path relative to the engine base URL. Required when transfer=http_download." },
+        "file_uri": { "type": "string", "pattern": "^file://" },
+        "provenance": { "$ref": "#/$defs/Provenance" },
+        "qa": { "type": "array", "items": { "$ref": "#/$defs/QaResult" } },
+        "metadata": { "type": "object" }
+      }
+    },
+    "ErrorClass": {
+      "type": "string",
+      "description": "Failure classification. Determines platform retry behaviour: transient, resource and timeout are retried with backoff; all others are terminal.",
+      "enum": ["invalid_input", "not_found", "conflict", "auth", "resource", "transient", "permanent", "timeout", "cancelled"]
+    },
+    "ErrorObject": {
+      "type": "object",
+      "required": ["code", "class", "message", "retryable"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Stable machine code (see README error table). Receivers MUST handle unknown codes using class and retryable.",
+          "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+        },
+        "class": { "$ref": "#/$defs/ErrorClass" },
+        "message": { "type": "string", "maxLength": 2000 },
+        "retryable": { "type": "boolean" },
+        "retry_after_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "details": { "type": "object" }
+      }
+    },
+    "ResourceUsage": {
+      "type": "object",
+      "properties": {
+        "gpu_seconds": { "type": ["number", "null"], "minimum": 0 },
+        "wall_seconds": { "type": ["number", "null"], "minimum": 0 },
+        "vram_peak_mb": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

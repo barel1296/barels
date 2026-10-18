@@ -1,5 +1,7 @@
 # 07 — Content Production Pipeline
 
+> **Ownership (2026-10-18 update):** everything in this document that happens inside ComfyUI is Track A's: graphs, models, LoRA training and swaps, degradation ladders and identity scoring. The platform side (job orchestration, contract gateway, ingestion, QA decision, approvals, publishing) is implemented in [`apps/platform`](../apps/platform/README.md) against the [Visual Engine Contract](../contracts/visual-engine/README.md). Status: [doc 16](16-implementation-status.md).
+
 > Status: Proposed — **revised 2026-10-18: all generation and validation run locally in ComfyUI and the Inference Host** · Related: [13 GPU scheduling](13-gpu-scheduling-and-capacity.md), [15 local model stack](15-local-model-stack.md), [06 agents](06-agent-system.md)
 >
 > Model names refer to the **recommended candidates** in doc 15. Production uses whichever candidate wins the Stage-0 bake-off; the workflow keys stay the same.
@@ -97,7 +99,7 @@ The **residual risk is accepted and recorded** (doc 03, R8).
 
 ## 3. Workflows
 
-All ComfyUI workflows are versioned rows in `inference.workflows`:
+*(Superseded on the platform side by `inference.visual_workflows`, which holds contract manifests with no graphs; see doc 16 §5. The list below is guidance for Track A's engine.)* All ComfyUI workflows are versioned:
 
 - the API-format graph and parameter bindings;
 - pinned models and custom nodes;
@@ -244,7 +246,7 @@ Publish jobs are idempotent; insights snapshots follow at +1h, +24h and +7d.
 
 ## 4. Model routing and eligibility
 
-Routing is data: `persona_runtime_config.image_workflow_key` / `video_workflow_key` → `inference.workflows` → `required_model_ids` → `inference.models` (approved, licence-checked). Swapping the base generator is a new workflow version plus a new LoRA per persona, so it is a **campaign**, not a toggle. That is why the bake-off happens before persona onboarding scales (doc 10).
+Routing is data: `identity.workflow_bindings` (per influencer, per purpose, SemVer range) → `inference.visual_workflows` (approved contract manifest). Behind the contract, Track A maps a workflow version to its models; licence evidence is part of the platform approval. Swapping the base generator is a new workflow version plus a new LoRA per persona, so it is a **campaign**, not a toggle. That is why the bake-off happens before persona onboarding scales (doc 10).
 
 | Capability | Workflow key | Default model (doc 15) | Rating ceiling (our policy) |
 |---|---|---|---|

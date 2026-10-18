@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.aios.internal/vec/v1/resources.schema.json",
+  "title": "Engine resource state and release (GPU coordination)",
+  "$defs": {
+    "ResourceState": {
+      "type": "object",
+      "required": ["status", "running_job_ids", "queue_depth"],
+      "properties": {
+        "status": { "type": "string", "enum": ["ready", "busy", "degraded", "maintenance"] },
+        "vram_total_mb": { "type": ["integer", "null"], "minimum": 0 },
+        "vram_in_use_mb": { "type": ["integer", "null"], "minimum": 0 },
+        "loaded": {
+          "type": "array",
+          "description": "Opaque identifiers of models currently resident on the GPU.",
+          "items": { "type": "string" }
+        },
+        "running_job_ids": { "type": "array", "items": { "type": "string" } },
+        "queue_depth": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ReleaseRequest": {
+      "type": "object",
+      "required": ["scope", "reason"],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "description": "idle_models: unload models not needed by running jobs. all_models: unload everything (only valid when no job is running).",
+          "enum": ["idle_models", "all_models"]
+        },
+        "reason": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "ReleaseResponse": {
+      "type": "object",
+      "required": ["released"],
+      "properties": {
+        "released": { "type": "boolean" },
+        "vram_in_use_mb": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    }
+  },
+  "$ref": "#/$defs/ResourceState"
+}

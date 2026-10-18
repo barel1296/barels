@@ -1,0 +1,39 @@
+{
+  "contract_version": "1.0",
+  "workflow_key": "__conformance__.solid_color",
+  "version": "1.0.0",
+  "task": "generate_image",
+  "title": "Conformance: solid colour PNG",
+  "description": "NORMATIVE. Every engine MUST expose this workflow when started in conformance mode. It must not load any model or use the GPU. It renders `count` PNG images of the given colour and size after waiting delay_ms (used to test progress and cancellation).",
+  "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["color", "width", "height"],
+    "properties": {
+      "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+      "width": { "type": "integer", "minimum": 8, "maximum": 512 },
+      "height": { "type": "integer", "minimum": 8, "maximum": 512 },
+      "delay_ms": { "type": "integer", "minimum": 0, "maximum": 60000, "default": 0 }
+    }
+  },
+  "references": {
+    "persona_identity": { "required": false },
+    "assets": { "roles": [], "min": 0, "max": 0 },
+    "adapters": { "kinds": [], "max": 0 }
+  },
+  "outputs": { "kind": "image", "mime_types": ["image/png"], "count": { "min": 1, "max": 4, "default": 1 } },
+  "resources": {
+    "gpu_required": false,
+    "vram_mb_peak": 0,
+    "est_seconds_p50": null,
+    "est_seconds_p95": null,
+    "measured_on": null,
+    "preemptible": true,
+    "default_priority": "maintenance"
+  },
+  "timeouts": { "max_runtime_s": 120 },
+  "quality": { "qa_checks": [] },
+  "provenance": { "c2pa": "none" },
+  "deprecated": false,
+  "sunset_at": null
+}

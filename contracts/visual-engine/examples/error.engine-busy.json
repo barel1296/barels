@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "ENGINE_BUSY",
+    "class": "resource",
+    "message": "max_concurrent_jobs reached",
+    "retryable": true,
+    "retry_after_ms": 5000
+  }
+}

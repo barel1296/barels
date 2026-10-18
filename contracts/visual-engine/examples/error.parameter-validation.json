@@ -1,0 +1,13 @@
+{
+  "error": {
+    "code": "PARAMETER_VALIDATION_FAILED",
+    "class": "invalid_input",
+    "message": "parameters do not match the workflow input_schema",
+    "retryable": false,
+    "details": {
+      "violations": [
+        { "path": "/aspect_ratio", "message": "must be equal to one of the allowed values" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "engine_id": "ws01-comfyui",
+  "engine_version": "0.1.0",
+  "engine_kind": "comfyui",
+  "contract_versions": ["1.0"],
+  "status": "ready",
+  "capabilities": {
+    "max_concurrent_jobs": 1,
+    "cancellation": true,
+    "progress": true,
+    "callbacks": false,
+    "resource_release": true,
+    "output_transfer": ["http_download", "file_uri"]
+  },
+  "gpu": { "name": null, "vram_total_mb": null },
+  "conformance_mode": false
+}

@@ -1,0 +1,23 @@
+{
+  "contract_version": "1.0",
+  "description": "Machine-readable conformance scenarios. The platform's conformance runner (`npm run conformance -- --engine-url <url> --token <token>`) executes them against any engine started in conformance mode. Track A runs it against the real ComfyUI-backed engine; CI runs it against the contract mock.",
+  "workflow": { "key": "__conformance__.solid_color", "version": "1.0.0" },
+  "scenarios": [
+    { "id": "C01", "name": "auth required", "expect": "GET /engine without Authorization → 401 UNAUTHORIZED (error-response schema)" },
+    { "id": "C02", "name": "engine info", "expect": "GET /engine → 200, valid engine-info, contract_versions contains 1.0, capabilities.output_transfer contains http_download, conformance_mode=true" },
+    { "id": "C03", "name": "workflow discovery", "expect": "GET /workflows lists __conformance__.solid_color@1.0.0 with manifest_sha256 equal to sha256(RFC 8785 canonical JSON, minus deprecated/sunset_at) of the manifest from GET /workflows/{key}/versions/{version}" },
+    { "id": "C04", "name": "manifest valid", "expect": "manifest validates against workflow-manifest schema; input_schema matches the normative example" },
+    { "id": "C05", "name": "unknown workflow", "expect": "GET /workflows/does_not_exist/versions/1.0.0 → 404 WORKFLOW_NOT_FOUND or WORKFLOW_VERSION_NOT_FOUND" },
+    { "id": "C06", "name": "submit and succeed", "submission": "submissions/valid-solid-color.json", "expect": "202 queued|running; polling reaches succeeded within 60 s; 2 outputs; each output downloads with matching sha256, bytes, image/png, width/height as requested" },
+    { "id": "C07", "name": "idempotent replay", "expect": "re-POST identical body+key → 200 or 202 with the same job_id" },
+    { "id": "C08", "name": "idempotency conflict", "expect": "POST same request_id+attempt with different parameters → 409 IDEMPOTENCY_CONFLICT" },
+    { "id": "C09", "name": "new attempt", "expect": "same request_id with attempt+1 → new job_id" },
+    { "id": "C10", "name": "parameter validation", "submission": "submissions/invalid-parameters.json", "expect": "422 PARAMETER_VALIDATION_FAILED, class invalid_input, retryable=false" },
+    { "id": "C11", "name": "unsupported contract version", "submission": "submissions/invalid-contract-version.json", "expect": "400 UNSUPPORTED_CONTRACT_VERSION or INVALID_REQUEST" },
+    { "id": "C12", "name": "cancellation", "submission": "submissions/slow-solid-color.json", "expect": "POST /jobs/{id}/cancel while running → cancelling|cancelled; polling reaches cancelled; no outputs; error.code=CANCELLED" },
+    { "id": "C13", "name": "cancel terminal job", "expect": "cancel on a succeeded job → 200 with state still succeeded" },
+    { "id": "C14", "name": "unknown job", "expect": "GET /jobs/does-not-exist → 404 JOB_NOT_FOUND" },
+    { "id": "C15", "name": "resources", "expect": "GET /resources → 200 valid ResourceState" },
+    { "id": "C16", "name": "status schema", "expect": "every job status returned during C06–C13 validates against job-status schema" }
+  ]
+}
