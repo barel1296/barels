@@ -76,7 +76,15 @@ export class JobRunner {
   constructor(
     private readonly pool: pg.Pool,
     private readonly handlers: Map<string, JobHandler>,
-    private readonly opts: { workerId: string; leaseSeconds: number; concurrency: number },
+    private readonly opts: {
+      workerId: string;
+      leaseSeconds: number;
+      concurrency: number;
+      /** Only these queues (default: all). Separate runners keep payment jobs from waiting behind LLM work. */
+      queues?: string[];
+      /** Every queue except these. */
+      excludeQueues?: string[];
+    },
   ) {}
 
   /** Returns jobs whose lease expired (worker crashed mid-job) to the queue. */
@@ -100,11 +108,12 @@ export class JobRunner {
         WHERE id IN (
           SELECT id FROM core.jobs
            WHERE status = 'queued' AND run_at <= now() AND name = ANY($3::text[])
+             AND ($5::text[] IS NULL OR queue = ANY($5::text[])) AND ($6::text[] IS NULL OR NOT (queue = ANY($6::text[])))
            ORDER BY priority, run_at
            LIMIT $4
            FOR UPDATE SKIP LOCKED)
         RETURNING id, workspace_id, queue, name, job_key, payload, priority, attempts, max_attempts`,
-      [this.opts.workerId, this.opts.leaseSeconds, names, limit],
+      [this.opts.workerId, this.opts.leaseSeconds, names, limit, this.opts.queues ?? null, this.opts.excludeQueues ?? null],
     );
     // Priority order is preserved within the batch; run with bounded concurrency.
     const queue = [...rows].sort((a, b) => a.priority - b.priority);

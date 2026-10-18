@@ -33,6 +33,10 @@ const runtimeConfig = {
     languages: { type: 'array', items: text(16) },
     quiet_hours: obj,
     paused: { type: 'boolean' },
+    default_conversation_mode: { type: 'string', enum: ['ai_auto', 'ai_draft', 'human'] },
+    redisclosure_every_messages: { type: 'integer', minimum: 5, maximum: 1000 },
+    redisclosure_every_hours: { type: 'integer', minimum: 1, maximum: 168 },
+    memory_enabled: { type: 'boolean' },
   },
 } as const;
 

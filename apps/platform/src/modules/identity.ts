@@ -48,6 +48,10 @@ export interface RuntimeConfigInput {
   languages?: string[];
   quiet_hours?: Record<string, unknown>;
   paused?: boolean;
+  default_conversation_mode?: 'ai_auto' | 'ai_draft' | 'human';
+  redisclosure_every_messages?: number;
+  redisclosure_every_hours?: number;
+  memory_enabled?: boolean;
 }
 
 function assertTimezone(tz: string): void {
@@ -219,6 +223,10 @@ export async function updateRuntimeConfig(db: Db, ctx: Ctx, influencerId: string
         languages = coalesce($6, languages),
         quiet_hours = coalesce($7, quiet_hours),
         paused = coalesce($8, paused),
+        default_conversation_mode = coalesce($10, default_conversation_mode),
+        redisclosure_every_messages = coalesce($11, redisclosure_every_messages),
+        redisclosure_every_hours = coalesce($12, redisclosure_every_hours),
+        memory_enabled = coalesce($13, memory_enabled),
         updated_by = $9, updated_at = now()
       WHERE influencer_id = $1 RETURNING *`,
     [
@@ -231,8 +239,14 @@ export async function updateRuntimeConfig(db: Db, ctx: Ctx, influencerId: string
       input.quiet_hours ? JSON.stringify(input.quiet_hours) : null,
       input.paused ?? null,
       ctx.userId,
+      input.default_conversation_mode ?? null,
+      input.redisclosure_every_messages ?? null,
+      input.redisclosure_every_hours ?? null,
+      input.memory_enabled ?? null,
     ],
   );
+  // Fully automatic replies are a separate, explicitly audited decision (docs/README D9).
+  if (input.default_conversation_mode === 'ai_auto') requirePermission(ctx, 'conversation.manage');
   await auditCtx(db, ctx, {
     influencerId,
     action: 'influencer.runtime_config_update',

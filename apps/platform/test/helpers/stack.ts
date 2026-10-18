@@ -11,6 +11,7 @@ import { uuidv7 } from '../../src/lib/ids.js';
 import { issueApiToken } from '../../src/modules/auth.js';
 import { type MockEngine, startMockEngine } from '../../src/mock-engine/engine.js';
 import { type LlmSimulator, startLlmSimulator } from '../../src/simulators/llm.js';
+import { type TelegramSimulator, startTelegramSimulator } from '../../src/simulators/telegram.js';
 import { type Services, closeServices, createServices } from '../../src/services.js';
 import { engineHealthTick, runWorkerOnce } from '../../src/worker.js';
 import { createTestDatabase, type TestDatabase } from './db.js';
@@ -49,6 +50,8 @@ export interface Stack {
   engineToken: string;
   /** SIMULATED LLM (only with opts.llm). */
   llm: LlmSimulator | null;
+  /** SIMULATED Telegram Bot API (only with opts.telegram). */
+  telegram: TelegramSimulator | null;
   mediaRoot: string;
   ws: Users;
   client(token: string): Client;
@@ -87,6 +90,8 @@ export interface StackOptions {
   maxConcurrentJobs?: number;
   /** Start the SIMULATED LLM server and point LLM_BASE_URL at it. */
   llm?: boolean;
+  /** Start the SIMULATED Telegram Bot API server and point TELEGRAM_API_BASE_URL at it. */
+  telegram?: boolean;
   /** Extra environment overrides for loadConfig. */
   env?: Record<string, string>;
 }
@@ -96,7 +101,10 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
   const mediaRoot = await mkdtemp(join(tmpdir(), 'gi-media-'));
   const engineToken = randomBytes(32).toString('base64url');
   const llmSim = opts.llm ? await startLlmSimulator() : null;
+  const tgSim = opts.telegram ? await startTelegramSimulator() : null;
   const config = loadConfig({
+    ...(tgSim ? { TELEGRAM_API_BASE_URL: tgSim.baseUrl, TELEGRAM_POLL_TIMEOUT_S: '0' } : {}),
+    CONVERSATION_REPLY_DEBOUNCE_MS: '0',
     ...(llmSim ? { LLM_BASE_URL: llmSim.baseUrl, LLM_CHAT_MODEL: 'simulated-chat-model', LLM_TIMEOUT_MS: '5000' } : {}),
     SESSION_COOKIE_SECURE: 'false',
     DATABASE_URL: db.appUrl,
@@ -120,6 +128,7 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
   const api = buildApi(svc);
   const cleanup = async () => {
     await llmSim?.close().catch(() => undefined);
+    await tgSim?.close().catch(() => undefined);
     await api.close().catch(() => undefined);
     await engine.close().catch(() => undefined);
     await closeServices(svc);
@@ -182,6 +191,7 @@ export async function startStack(opts: StackOptions = {}): Promise<Stack> {
     engine,
     engineToken,
     llm: llmSim,
+    telegram: tgSim,
     mediaRoot,
     ws,
     client: (token) => makeClient(address, token),

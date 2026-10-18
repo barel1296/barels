@@ -15,6 +15,19 @@ export interface Registry {
   handlers: Map<string, JobHandler>;
   subscriptions: EventSubscription[];
   periodic: PeriodicTask[];
+  /** Long-running worker loops contributed by integrations (e.g. Telegram long polling). */
+  loops: WorkerLoop[];
+}
+
+export interface WorkerLoop {
+  name: string;
+  intervalMs: number;
+  /** One tick of the production loop. */
+  run: () => Promise<unknown>;
+  /** A bounded, non-blocking pass for `runWorkerOnce` (tests, `cli worker:once`); defaults to `run`. */
+  once?: () => Promise<unknown>;
+  /** Called when the worker stops. */
+  stop?: () => Promise<void>;
 }
 
 export type Contribution = (svc: Services, r: Registry) => void;
@@ -37,7 +50,7 @@ function core(svc: Services, r: Registry): void {
 }
 
 export function buildRegistry(svc: Services): Registry {
-  const r: Registry = { handlers: new Map(), subscriptions: [], periodic: [] };
+  const r: Registry = { handlers: new Map(), subscriptions: [], periodic: [], loops: [] };
   core(svc, r);
   for (const c of contributions) c(svc, r);
   return r;

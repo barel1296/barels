@@ -124,6 +124,7 @@ export interface Config {
   telegram: TelegramConfig;
   instagram: InstagramConfig;
   payments: PaymentsConfig;
+  conversation: { replyDebounceMs: number };
   /** Job runner concurrency (non-GPU background work). */
   jobConcurrency: number;
 }
@@ -256,6 +257,9 @@ export function loadConfig(env: Env = process.env): Config {
       invoiceSecret: Buffer.from(env.INVOICE_SECRET ?? env.ASSET_URL_SECRET ?? '', 'base64'),
       subscriptionGraceHours: int(env, 'SUBSCRIPTION_GRACE_H', 48, 0),
       subscriptionPeriodSeconds: int(env, 'SUBSCRIPTION_PERIOD_S', 2_592_000, 60),
+    },
+    conversation: {
+      replyDebounceMs: int(env, 'CONVERSATION_REPLY_DEBOUNCE_MS', 2500, 0),
     },
     jobConcurrency: int(env, 'JOB_CONCURRENCY', 4, 1),
   };

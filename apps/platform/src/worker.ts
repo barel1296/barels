@@ -15,13 +15,18 @@ export async function engineHealthTick(svc: Services): Promise<void> {
   for (const engine of rows) await refreshEngineHealth(svc.workerPool, svc.engineClients, engine);
 }
 
-export function jobRunnerFor(svc: Services, registry: Registry): JobRunner {
+export function jobRunnerFor(svc: Services, registry: Registry, lanes: { queues?: string[]; excludeQueues?: string[]; concurrency?: number } = {}): JobRunner {
   return new JobRunner(svc.workerPool, registry.handlers, {
     workerId: svc.config.worker.workerId,
     leaseSeconds: Math.max(svc.config.worker.leaseSeconds, 120),
-    concurrency: svc.config.jobConcurrency,
+    concurrency: lanes.concurrency ?? svc.config.jobConcurrency,
+    ...(lanes.queues ? { queues: lanes.queues } : {}),
+    ...(lanes.excludeQueues ? { excludeQueues: lanes.excludeQueues } : {}),
   });
 }
+
+/** Queues with their own runner, so payment integrity never waits behind LLM or maintenance work. */
+export const DEDICATED_QUEUES = ['payments', 'conversation'] as const;
 
 /**
  * One full pass of every background step, in dependency order (used by tests and
@@ -33,6 +38,7 @@ export async function runWorkerOnce(svc: Services, opts: { registry?: Registry; 
   await pollTick(svc);
   await ingestRecoveryTick(svc);
   await publisherTick(svc);
+  for (const l of registry.loops) await (l.once ?? l.run)();
   await dispatchOutbox(svc.workerPool, registry.subscriptions);
   await jobRunnerFor(svc, registry).runOnce();
   if (opts.periodic) await runDuePeriodic(svc.workerPool, registry.periodic);
@@ -62,23 +68,18 @@ export class Worker {
       this.loop('ingest-recovery', w.pollIntervalMs * 5, () => ingestRecoveryTick(this.svc)),
       this.loop('publish', w.publishIntervalMs, () => publisherTick(this.svc)),
       this.loop('outbox', 500, () => dispatchOutbox(this.svc.workerPool, this.registry.subscriptions)),
-      this.loop('jobs', 250, () => jobRunnerFor(this.svc, this.registry).runOnce()),
+      this.loop('jobs:payments', 100, () => jobRunnerFor(this.svc, this.registry, { queues: ['payments'], concurrency: 2 }).runOnce()),
+      this.loop('jobs:conversation', 200, () => jobRunnerFor(this.svc, this.registry, { queues: ['conversation'] }).runOnce()),
+      this.loop('jobs', 250, () => jobRunnerFor(this.svc, this.registry, { excludeQueues: [...DEDICATED_QUEUES] }).runOnce()),
       this.loop('periodic', 5_000, () => runDuePeriodic(this.svc.workerPool, this.registry.periodic)),
       this.loop('gpu-monitor', this.svc.config.monitoring.gpuSampleIntervalMs, () => sampleGpu(this.svc)),
-      ...this.extraLoops(),
+      ...this.registry.loops.map((l) => this.loop(l.name, l.intervalMs, l.run)),
     ];
-  }
-
-  /** Loops contributed by integrations (e.g. Telegram long polling), registered via `addLoop`. */
-  private extraLoops(): Promise<void>[] {
-    return extraLoopFactories.map((f) => {
-      const { name, intervalMs, tick } = f(this.svc);
-      return this.loop(name, intervalMs, tick);
-    });
   }
 
   async stop(): Promise<void> {
     this.running = false;
+    await Promise.allSettled(this.registry.loops.map((l) => l.stop?.() ?? Promise.resolve()));
     await Promise.allSettled(this.loops);
   }
 
@@ -93,12 +94,4 @@ export class Worker {
       while (this.running && Date.now() < until) await sleep(Math.min(100, intervalMs));
     }
   }
-}
-
-type LoopFactory = (svc: Services) => { name: string; intervalMs: number; tick: () => Promise<unknown> };
-const extraLoopFactories: LoopFactory[] = [];
-
-/** Integrations register long-running loops here (e.g. Telegram getUpdates per bot). */
-export function addLoop(f: LoopFactory): void {
-  extraLoopFactories.push(f);
 }
