@@ -52,6 +52,23 @@ async function api(method, path, body) {
   return data;
 }
 
+// Sends a file as the raw request body (reference image uploads).
+async function upload(path, file) {
+  const res = await fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': file.type || 'application/octet-stream', 'x-csrf-token': state.csrf ?? cookie('gi_csrf') ?? '' }, body: file });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data;
+}
+
+function parseJson(text, what) {
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    throw new Error(`${what} is not valid JSON: ${err.message}`);
+  }
+}
+
 function toast(message) {
   const t = document.getElementById('toast');
   t.textContent = message;
@@ -97,7 +114,7 @@ function form(fields, submitLabel, onSubmit, cls = 'stack') {
   for (const fd of fields) {
     let input;
     if (fd.type === 'select') input = h('select', { name: fd.name }, fd.options.map((o) => h('option', { value: o, selected: o === fd.value }, o)));
-    else if (fd.type === 'textarea') input = h('textarea', { name: fd.name, required: fd.required, placeholder: fd.placeholder ?? '' }, fd.value ?? '');
+    else if (fd.type === 'textarea') input = h('textarea', { name: fd.name, required: fd.required, placeholder: fd.placeholder ?? '', rows: fd.rows }, fd.value ?? '');
     else input = h('input', { name: fd.name, type: fd.type ?? 'text', value: fd.value ?? '', required: fd.required, autocomplete: fd.autocomplete ?? 'off', inputmode: fd.inputmode, placeholder: fd.placeholder ?? '' });
     f.append(h('label', {}, fd.label, input));
   }
@@ -217,12 +234,36 @@ async function influencersPage(view) {
       ]),
     ),
   );
+  if (can('influencer.create')) {
+    view.append(
+      h('h2', {}, 'New influencer'),
+      h('p', { class: 'muted' }, 'To reuse a working setup, open the influencer and use “Clone configuration” on its Setup page instead.'),
+      h('div', { class: 'panel' }, form(identityFields({}), 'Create', (d) => act(async () => {
+        const inf = await api('POST', '/v1/influencers', d);
+        state.influencers = await api('GET', '/v1/influencers');
+        location.hash = `#/setup/${inf.id}`;
+      }, 'Influencer created'))),
+    );
+  }
+}
+
+// Identity fields shared by "new influencer" and "clone".
+function identityFields(src) {
+  return [
+    { name: 'slug', label: 'Slug (a-z, 0-9, -)', required: true, placeholder: 'golden-2' },
+    { name: 'display_name', label: 'Display name', required: true },
+    { name: 'ai_disclosure_short', label: 'Short AI disclosure (bios, captions)', required: true, value: src.ai_disclosure_short ?? 'AI-generated virtual creator' },
+    { name: 'ai_disclosure_long', label: 'Full AI disclosure (consent screen)', type: 'textarea', required: true, value: src.ai_disclosure_long ?? 'This account is an AI-generated virtual character. Images are AI-generated; messages are automated.' },
+    { name: 'timezone', label: 'Time zone', required: true, value: src.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone },
+    { name: 'primary_language', label: 'Primary language', required: true, value: src.primary_language ?? 'en' },
+  ];
 }
 
 async function influencerPage(view, id) {
   const [inf, channels, switches] = await Promise.all([api('GET', `/v1/influencers/${id}`), api('GET', `/v1/influencers/${id}/channels`), api('GET', '/v1/kill-switches').catch(() => [])]);
   view.append(h('h1', {}, inf.display_name, ' ', badge(inf.status, tone(inf.status))));
   view.append(h('p', { class: 'muted' }, inf.ai_disclosure_long));
+  view.append(h('p', {}, h('a', { href: `#/setup/${id}` }, 'Setup: persona, references, workflows, Telegram bot, clone →')));
   const rt = inf.runtime_config ?? inf.runtime ?? {};
   if (can('influencer.update')) {
     view.append(h('h2', {}, 'Runtime configuration'));
@@ -764,6 +805,388 @@ async function usersPage(view) {
 }
 
 // --------------------------------------------------------------------------
+// Influencer setup: persona, identity material, workflows, bot, cloning
+// --------------------------------------------------------------------------
+const PERSONA_KEYS = ['personality', 'writing_style', 'biography', 'visual_identity', 'conversation_rules', 'voice_profile'];
+const PERSONA_TEMPLATE = {
+  personality: { traits: [], values: [], boundaries: [] },
+  writing_style: { tone: '', emoji_policy: 'sparse' },
+  biography: { fictional: true, age_years: 25, home_city: '' },
+  visual_identity: { hair: '', eyes: '', photo_style: '' },
+  conversation_rules: { disclosure: 'I am an AI-generated virtual creator.', relationship_framing: 'friendly, never romantic exclusivity' },
+};
+const REFERENCE_KINDS = ['face_canonical', 'face_angle', 'body', 'outfit', 'style', 'environment'];
+const PRIORITY_CLASSES = ['scheduled_image', 'time_sensitive', 'video', 'maintenance'];
+
+async function setupPage(view, id) {
+  const inf = await api('GET', `/v1/influencers/${id}`);
+  const workflows = can('workflow.read') ? await api('GET', '/v1/platform/workflows?status=approved').catch(() => []) : [];
+  view.append(h('h1', {}, `Setup · ${inf.display_name} `, badge(inf.status, tone(inf.status))));
+  view.append(h('p', {}, h('a', { href: `#/influencer/${id}` }, '← Influencer')));
+
+  if (can('influencer.update')) {
+    view.append(h('h2', {}, 'Status'));
+    const next = { draft: ['active', 'archived'], active: ['paused', 'archived'], paused: ['active', 'archived'], archived: [] }[inf.status] ?? [];
+    view.append(
+      h(
+        'div',
+        { class: 'panel row' },
+        next.map((s) => h('button', { class: s === 'active' ? '' : 'secondary', onclick: () => act(() => api('POST', `/v1/influencers/${id}/status`, { status: s }), `Status: ${s}`) }, { active: 'Activate', paused: 'Pause', archived: 'Archive' }[s])),
+        h('span', { class: 'muted' }, inf.active_persona_version_id ? 'An active persona is in place.' : 'Activation needs an approved, activated persona version (below).'),
+      ),
+    );
+  }
+
+  // Persona versions: author → reviewer (a different person) → activate.
+  view.append(h('h2', {}, 'Persona versions'));
+  const personaActions = (r) => {
+    const steps = [];
+    if (r.status === 'draft' && can('persona.edit')) steps.push(['submit', 'Submit for review']);
+    if (r.status === 'in_review' && can('persona.approve') && r.created_by !== state.session.user.id) steps.push(['approve', 'Approve']);
+    if (r.status === 'approved' && can('persona.activate')) steps.push(['activate', 'Activate']);
+    const own = r.status === 'in_review' && r.created_by === state.session.user.id ? h('span', { class: 'muted' }, 'awaiting another reviewer') : '';
+    return h('div', { class: 'row' }, steps.map(([a, label]) => h('button', { class: 'secondary', onclick: () => act(() => api('POST', `/v1/persona-versions/${r.id}/${a}`), label) }, label)), own);
+  };
+  view.append(
+    h(
+      'div',
+      { class: 'panel' },
+      table(
+        inf.persona_versions,
+        [
+          { label: 'Version', key: 'version' },
+          { label: 'Status', render: (r) => badge(r.status, tone(r.status)) },
+          { label: 'What changed', key: 'change_summary' },
+          { label: 'Approved', render: (r) => when(r.approved_at) },
+          { label: '', render: personaActions },
+        ],
+        'No persona yet: write the first draft below.',
+      ),
+    ),
+  );
+  if (can('persona.edit')) {
+    const latest = inf.persona_versions.at(-1);
+    const base = latest ? await api('GET', `/v1/persona-versions/${latest.id}`) : null;
+    const content = base ? Object.fromEntries(PERSONA_KEYS.filter((k) => base[k] !== null && base[k] !== undefined).map((k) => [k, base[k]])) : PERSONA_TEMPLATE;
+    view.append(
+      h(
+        'div',
+        { class: 'panel' },
+        form(
+          [
+            { name: 'persona', label: `New draft (JSON${base ? `, starting from version ${base.version}` : ''}). Fictional adult persona; the disclosure must say it is an AI.`, type: 'textarea', rows: 18, required: true, value: JSON.stringify(content, null, 2) },
+            { name: 'change_summary', label: 'What changed', required: true },
+          ],
+          'Save draft',
+          (d) => act(() => api('POST', `/v1/influencers/${id}/persona-versions`, { ...parseJson(d.persona, 'The persona'), change_summary: d.change_summary }), 'Draft saved'),
+          'stack wide',
+        ),
+      ),
+    );
+  }
+
+  // Reference images (identity material for Track A workflows).
+  view.append(h('h2', {}, 'Reference images'));
+  view.append(
+    h(
+      'div',
+      { class: 'panel' },
+      table(
+        inf.reference_assets.filter((r) => !r.retired_at),
+        [
+          { label: 'Image', render: (r) => h('img', { src: `/v1/media-assets/${r.media_asset_id}/preview`, alt: r.kind, class: 'ref', loading: 'lazy' }) },
+          { label: 'Kind', key: 'kind' },
+          { label: 'Size', render: (r) => `${fmt(r.width)} × ${fmt(r.height)}` },
+          { label: 'SHA-256', render: (r) => `${String(r.sha256).slice(0, 12)}…` },
+          { label: 'Status', render: (r) => (r.approved_by ? badge('approved', 'ok') : badge('pending', 'warn')) },
+          { label: '', render: (r) => (!r.approved_by && can('reference_asset.approve') ? h('button', { class: 'secondary', onclick: () => act(() => api('POST', `/v1/reference-assets/${r.id}/approve`), 'Reference approved') }, 'Approve') : '') },
+        ],
+        'No reference images yet.',
+      ),
+    ),
+  );
+  if (can('reference_asset.upload')) {
+    view.append(
+      h(
+        'div',
+        { class: 'panel' },
+        form(
+          [
+            { name: 'kind', label: 'Kind', type: 'select', options: REFERENCE_KINDS, value: 'face_canonical' },
+            { name: 'file', label: 'Image (PNG, JPEG or WebP)', type: 'file', required: true },
+          ],
+          'Upload',
+          (d) => act(() => upload(`/v1/influencers/${id}/reference-assets?kind=${encodeURIComponent(d.kind)}`, d.file), 'Uploaded; a compliance officer approves it'),
+          'inline',
+        ),
+      ),
+    );
+  }
+
+  // Adapters: opaque references to Track A artefacts (e.g. a LoRA file name).
+  view.append(h('h2', {}, 'Adapters'));
+  view.append(
+    h(
+      'div',
+      { class: 'panel' },
+      table(
+        inf.adapters,
+        [
+          { label: 'Kind', key: 'kind' },
+          { label: 'Engine reference', key: 'engine_ref' },
+          { label: 'Workflows', render: (r) => (r.workflow_keys ?? []).join(', ') },
+          { label: 'Status', render: (r) => (r.approved_by ? badge('approved', 'ok') : badge(r.status, tone(r.status) ?? 'warn')) },
+          {
+            label: '',
+            render: (r) =>
+              r.approved_by || r.status !== 'ready' || !can('persona.approve')
+                ? ''
+                : r.registered_by === state.session.user.id
+                  ? h('span', { class: 'muted' }, 'awaiting another approver')
+                  : h('button', { class: 'secondary', onclick: () => act(() => api('POST', `/v1/adapters/${r.id}/approve`), 'Adapter approved') }, 'Approve'),
+          },
+        ],
+        'No adapters. Track A supplies the engine reference (for example a LoRA file name).',
+      ),
+    ),
+  );
+  if (can('adapter.register')) {
+    view.append(
+      h(
+        'div',
+        { class: 'panel' },
+        form(
+          [
+            { name: 'kind', label: 'Kind', type: 'select', options: ['lora', 'other'] },
+            { name: 'engine_ref', label: 'Engine reference (from Track A)', required: true },
+            { name: 'workflow_keys', label: 'Workflow keys (comma-separated, optional)' },
+          ],
+          'Register adapter',
+          (d) =>
+            act(
+              () =>
+                api('POST', `/v1/influencers/${id}/adapters`, {
+                  kind: d.kind,
+                  engine_ref: d.engine_ref,
+                  ...(d.workflow_keys.trim() ? { workflow_keys: d.workflow_keys.split(',').map((k) => k.trim()).filter(Boolean) } : {}),
+                }),
+              'Adapter registered',
+            ),
+          'inline',
+        ),
+      ),
+    );
+  }
+
+  // Workflow bindings: which approved workflow serves each purpose.
+  view.append(h('h2', {}, 'Workflow bindings'));
+  view.append(
+    h(
+      'div',
+      { class: 'panel' },
+      table(
+        inf.workflow_bindings,
+        [
+          { label: 'Purpose', key: 'purpose' },
+          { label: 'Workflow', key: 'workflow_key' },
+          { label: 'Versions', key: 'version_range' },
+          { label: 'Priority', key: 'priority_class' },
+          { label: 'Default parameters', render: (r) => JSON.stringify(r.default_parameters ?? {}) },
+        ],
+        'No bindings: generation needs at least one (e.g. feed_photo).',
+      ),
+    ),
+  );
+  if (can('binding.manage')) {
+    const keys = [...new Set(workflows.filter((w) => !w.is_conformance).map((w) => w.workflow_key))];
+    view.append(
+      h(
+        'div',
+        { class: 'panel' },
+        keys.length
+          ? form(
+              [
+                { name: 'purpose', label: 'Purpose', required: true, value: 'feed_photo' },
+                { name: 'workflow_key', label: 'Workflow (approved)', type: 'select', options: keys, value: keys[0] },
+                { name: 'version_range', label: 'Version range', required: true, value: '^1.0' },
+                { name: 'priority_class', label: 'Priority class', type: 'select', options: PRIORITY_CLASSES, value: 'scheduled_image' },
+                { name: 'default_parameters', label: 'Default parameters (JSON)', type: 'textarea', value: '{}' },
+              ],
+              'Save binding',
+              (d) =>
+                act(
+                  () =>
+                    api('PUT', `/v1/influencers/${id}/workflow-bindings/${encodeURIComponent(d.purpose)}`, {
+                      workflow_key: d.workflow_key,
+                      version_range: d.version_range,
+                      priority_class: d.priority_class,
+                      default_parameters: parseJson(d.default_parameters || '{}', 'Default parameters'),
+                    }),
+                  'Binding saved',
+                ),
+            )
+          : h('p', { class: 'muted' }, 'No approved workflow yet: a platform admin registers the engine, syncs and approves workflows on the Engines page.'),
+      ),
+    );
+  }
+
+  // Telegram bot: the token is stored encrypted and never shown again.
+  if (can('integration.manage')) {
+    view.append(h('h2', {}, 'Telegram bot'));
+    view.append(
+      h(
+        'div',
+        { class: 'panel' },
+        form(
+          [{ name: 'token', label: 'Bot token from @BotFather (stored encrypted, not shown again)', type: 'password', required: true }],
+          'Connect bot',
+          (d) =>
+            act(async () => {
+              const r = await api('POST', `/v1/influencers/${id}/telegram/bot`, { token: d.token.trim() });
+              toast(`Connected @${r.bot_username ?? r.bot_id}`);
+            }),
+          'inline',
+        ),
+        h('p', {}, h('button', { class: 'secondary', onclick: () => act(() => api('POST', `/v1/influencers/${id}/telegram/bot/sync-profile`), 'Bot name, description and commands updated') }, 'Sync bot profile')),
+      ),
+    );
+  }
+
+  // Golden template replication.
+  if (can('influencer.create') && can('influencer.update')) {
+    view.append(h('h2', {}, 'Clone configuration'));
+    view.append(
+      h(
+        'div',
+        { class: 'panel' },
+        h(
+          'p',
+          { class: 'muted' },
+          'Creates a new, paused influencer with this one’s runtime settings, workflow bindings and QA thresholds, plus draft copies of its content policies, objectives, autonomy policies and products. Never copied: persona and reference images (each influencer has its own identity), bot tokens and channels, fans, conversations, memories, payments and content.',
+        ),
+        form(identityFields(inf), 'Clone', (d) =>
+          act(async () => {
+            const r = await api('POST', `/v1/influencers/${id}/clone`, d);
+            state.influencers = await api('GET', '/v1/influencers');
+            location.hash = `#/setup/${r.influencer.id}`;
+          }, 'Cloned'),
+        ),
+      ),
+    );
+  }
+}
+
+// --------------------------------------------------------------------------
+// Visual engines and the workflow registry (platform admins)
+// --------------------------------------------------------------------------
+async function enginesPage(view) {
+  view.append(h('h1', {}, 'Visual engines'));
+  const [engines, workflows] = await Promise.all([api('GET', '/v1/platform/engines'), api('GET', '/v1/platform/workflows')]);
+  view.append(
+    h(
+      'div',
+      { class: 'panel' },
+      table(
+        engines,
+        [
+          { label: 'Engine', key: 'engine_key' },
+          { label: 'URL', key: 'base_url' },
+          { label: 'Kind', render: (r) => badge(r.engine_kind ?? 'unknown', r.engine_kind === 'contract_mock' ? 'warn' : '') },
+          { label: 'Health', render: (r) => badge(r.health ?? r.status, r.health === 'ready' ? 'ok' : 'warn') },
+          { label: 'Media VRAM MB', key: 'media_lane_vram_mb' },
+          { label: 'Last seen', render: (r) => when(r.last_seen_at) },
+          { label: 'Error', render: (r) => r.last_error?.message ?? (typeof r.last_error === 'string' ? r.last_error : '') },
+          {
+            label: '',
+            render: (r) =>
+              h(
+                'div',
+                { class: 'row' },
+                h('button', { class: 'secondary', onclick: () => act(() => api('POST', `/v1/platform/engines/${r.id}/health`), 'Health refreshed') }, 'Health'),
+                h(
+                  'button',
+                  {
+                    onclick: () =>
+                      act(async () => {
+                        const s = await api('POST', `/v1/platform/engines/${r.id}/sync`);
+                        toast(`Sync: ${s.added.length} new, ${s.unchanged.length} unchanged, ${s.invalid.length + s.conflicts.length + s.hash_mismatch.length} problem(s)`);
+                      }),
+                  },
+                  'Sync workflows',
+                ),
+              ),
+          },
+        ],
+        'No engine registered yet.',
+      ),
+    ),
+  );
+  view.append(
+    h('h2', {}, 'Register an engine'),
+    h('p', { class: 'muted' }, 'The ComfyUI bridge on the workstation is http://127.0.0.1:8190/vec/v1 with the VEC_ENGINE_TOKEN from golden.env.'),
+    h(
+      'div',
+      { class: 'panel' },
+      form(
+        [
+          { name: 'engine_key', label: 'Engine key', required: true, value: 'ws-comfyui' },
+          { name: 'base_url', label: 'Base URL', required: true, value: 'http://127.0.0.1:8190/vec/v1' },
+          { name: 'token', label: 'Engine token (≥ 32 characters)', type: 'password', required: true },
+          { name: 'media_lane_vram_mb', label: 'VRAM available to media jobs, MB (optional, measured)', type: 'number' },
+        ],
+        'Register',
+        (d) =>
+          act(
+            () =>
+              api('POST', '/v1/platform/engines', {
+                engine_key: d.engine_key,
+                base_url: d.base_url,
+                token: d.token,
+                ...(d.media_lane_vram_mb ? { media_lane_vram_mb: Number(d.media_lane_vram_mb) } : {}),
+              }),
+            'Engine registered; now sync its workflows',
+          ),
+      ),
+    ),
+  );
+  const decide = (w, decision) =>
+    act(async () => {
+      const note = prompt(`${decision} ${w.workflow_key}@${w.version}: note for the audit log`);
+      if (!note) throw new Error('A note is required');
+      await api('POST', `/v1/platform/workflows/${w.id}/decision`, { decision, note });
+    }, `Workflow ${decision}d`);
+  view.append(
+    h('h2', {}, 'Workflows'),
+    h(
+      'div',
+      { class: 'panel' },
+      table(
+        workflows,
+        [
+          { label: 'Workflow', render: (r) => `${r.workflow_key}@${r.version}` },
+          { label: 'Title', key: 'title' },
+          { label: 'Output', key: 'output_kind' },
+          { label: 'GPU', render: (r) => (r.gpu_required ? `yes${r.vram_mb_peak ? `, ${fmt(r.vram_mb_peak)} MB peak` : ''}` : 'no') },
+          { label: 'Engines', render: (r) => String((r.engines ?? []).filter((e) => e.available).length) },
+          { label: 'Status', render: (r) => badge(r.status, tone(r.status) ?? (r.status === 'registered' ? 'warn' : '')) },
+          {
+            label: '',
+            render: (r) =>
+              h(
+                'div',
+                { class: 'row' },
+                r.status === 'registered' ? [h('button', { onclick: () => decide(r, 'approve') }, 'Approve'), h('button', { class: 'secondary', onclick: () => decide(r, 'reject') }, 'Reject')] : [],
+                ['registered', 'approved', 'deprecated'].includes(r.status) ? h('button', { class: 'danger', onclick: () => decide(r, 'disable') }, 'Disable') : '',
+              ),
+          },
+        ],
+        'No workflows yet: register an engine and sync it.',
+      ),
+    ),
+  );
+}
+
+// --------------------------------------------------------------------------
 // Routing
 // --------------------------------------------------------------------------
 const NAV = [
@@ -777,6 +1200,7 @@ const NAV = [
   { hash: '#/agents', label: 'Agents', perm: 'proposal.read' },
   { hash: '#/money', label: 'Money', perm: 'influencer.read' },
   { hash: '#/analytics', label: 'Analytics', perm: 'analytics.read' },
+  { hash: '#/engines', label: 'Engines', admin: true },
   { hash: '#/ops', label: 'Ops', admin: true },
   { hash: '#/users', label: 'Users', perm: 'user.manage' },
 ];
@@ -786,6 +1210,8 @@ const ROUTES = [
   [/^#\/?$/, overviewPage],
   [/^#\/influencers$/, influencersPage],
   [/^#\/influencer\/([0-9a-f-]{36})$/, influencerPage],
+  [/^#\/setup\/([0-9a-f-]{36})$/, setupPage],
+  [/^#\/engines$/, enginesPage],
   [/^#\/approvals$/, approvalsPage],
   [/^#\/approval\/([0-9a-f-]{36})$/, approvalPage],
   [/^#\/inbox$/, inboxPage],

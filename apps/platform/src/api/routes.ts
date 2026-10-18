@@ -212,6 +212,10 @@ export function registerRoutes(app: FastifyInstance, svc: Services, api: Api): v
     async (req, reply) => reply.status(201).send(await tenant(req, (db, ctx) => identity.createPersonaVersion(db, ctx, req.params.id, req.body))),
   );
 
+  app.get<{ Params: { id: string } }>('/v1/persona-versions/:id', { schema: { params: idParams } }, async (req) =>
+    tenant(req, (db, ctx) => identity.getPersonaVersion(db, ctx, req.params.id)),
+  );
+
   for (const [action, fn] of [
     ['submit', identity.submitPersonaVersion],
     ['approve', identity.approvePersonaVersion],

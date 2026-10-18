@@ -3,8 +3,9 @@
  * the running platform API, with SIMULATED Telegram and SIMULATED LLM behind
  * it. Proves sign-in with password + TOTP, the strict CSP, rendering of the
  * main pages, an approval decision, approving an AI chat draft, a kill
- * switch, and that fan-supplied text is rendered as text (no markup
- * injection). Skipped (and reported as skipped) when no Chromium is installed.
+ * switch, setting up and cloning an influencer entirely from the UI (engine,
+ * workflow approval, persona four-eyes, reference image, adapter, binding),
+ * and that fan-supplied text is rendered as text (no markup injection). Skipped (and reported as skipped) when no Chromium is installed.
  */
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
@@ -74,7 +75,9 @@ describe('admin dashboard (real Chromium; SIMULATED Telegram + LLM)', () => {
     page.on('console', (msg) => msg.type() === 'error' && errors.push(`console: ${msg.text()}`));
     page.on('dialog', (d) => {
       if (d.type() === 'alert') errors.push(`unexpected alert: ${d.message()}`);
-      void d.dismiss();
+      // Workflow decisions ask for an audit note.
+      if (d.type() === 'prompt') void d.accept('approved from the dashboard test');
+      else void d.dismiss();
     });
   });
   after(async () => {
@@ -150,6 +153,76 @@ describe('admin dashboard (real Chromium; SIMULATED Telegram + LLM)', () => {
       if (nav === 'Media') assert.equal(await page.locator('.tile img').first().evaluate((el) => (el as unknown as { naturalWidth: number }).naturalWidth), 48);
       if (nav === 'Calendar') assert.ok(await page.locator('td:has-text("Sunday market")').count(), 'the calendar shows the planned item');
     }
+  });
+
+  it('sets up a new influencer from the UI: engine, workflow, persona, reference, adapter, binding, clone', async (t) => {
+    if (skip) return t.skip(skip);
+    // Engines: register the (contract mock) engine, sync and approve its workflow.
+    await page.click('nav a:has-text("Engines")');
+    await page.waitForSelector('h1:has-text("Visual engines")');
+    await page.fill('input[name=engine_key]', 'ui-mock');
+    await page.fill('input[name=base_url]', stack.engine.url);
+    await page.fill('input[name=token]', stack.engineToken);
+    await page.click('button:has-text("Register")');
+    const engineRow = page.locator('tr', { hasText: 'ui-mock' });
+    await engineRow.waitFor();
+    await engineRow.locator('button:has-text("Sync workflows")').click();
+    const wfRow = page.locator('tr', { hasText: 'mock.persona_portrait@' });
+    await wfRow.waitFor();
+    await wfRow.locator('button:has-text("Approve")').click();
+    await wfRow.locator('.badge:has-text("approved")').waitFor();
+
+    // New influencer.
+    await page.click('nav a:has-text("Influencers")');
+    await page.fill('input[name=slug]', 'ui-made');
+    await page.fill('input[name=display_name]', 'UI Made');
+    await page.click('button:has-text("Create")');
+    await page.waitForSelector('h1:has-text("Setup · UI Made")');
+    const newId = page.url().split('/').pop()!;
+
+    // Persona: draft and submit here; a different person approves (four-eyes); activate here.
+    await page.fill('input[name=change_summary]', 'first draft from the UI');
+    await page.click('button:has-text("Save draft")');
+    await page.click('button:has-text("Submit for review")');
+    await page.waitForSelector('text=awaiting another reviewer');
+    assert.equal(await page.locator('button:has-text("Approve")').count(), 0, 'the author is not offered approval');
+    const pv = (await stack.ws.owner.client.get(`/v1/influencers/${newId}`)).body.persona_versions[0];
+    assert.equal((await stack.ws.compliance.client.post(`/v1/persona-versions/${pv.id}/approve`)).status, 200);
+    await page.reload();
+    await page.locator('tr', { hasText: 'first draft from the UI' }).locator('button:has-text("Activate")').click();
+    await page.locator('tr', { hasText: 'first draft from the UI' }).locator('.badge:has-text("active")').waitFor();
+    await page.locator('h2:has-text("Status") + div button:has-text("Activate")').click();
+    await page.waitForSelector('h1 .badge:has-text("active")');
+
+    // Reference image: upload the file, approve, and see the authenticated preview.
+    await page.setInputFiles('input[name=file]', { name: 'face.png', mimeType: 'image/png', buffer: encodeSolidPng(40, 40, [200, 160, 120]) });
+    await page.click('button:has-text("Upload")');
+    const refRow = page.locator('tr', { hasText: 'face_canonical' });
+    await refRow.locator('.badge:has-text("pending")').waitFor();
+    await refRow.locator('button:has-text("Approve")').click();
+    await refRow.locator('.badge:has-text("approved")').waitFor();
+    assert.equal(await refRow.locator('img.ref').evaluate((el) => (el as unknown as { naturalWidth: number }).naturalWidth), 40);
+
+    // Adapter: the registrant cannot approve it.
+    await page.fill('input[name=engine_ref]', 'ui-lora-a.safetensors');
+    await page.click('button:has-text("Register adapter")');
+    await page.locator('tr', { hasText: 'ui-lora-a.safetensors' }).locator('text=awaiting another approver').waitFor();
+
+    // Binding to the approved workflow.
+    await page.selectOption('select[name=workflow_key]', 'mock.persona_portrait');
+    await page.fill('textarea[name=default_parameters]', '{"aspect_ratio": "4:5"}');
+    await page.click('button:has-text("Save binding")');
+    await page.locator('tr', { hasText: 'feed_photo' }).locator('td:has-text("mock.persona_portrait")').waitFor();
+
+    // Clone: configuration comes along, identity does not.
+    await page.fill('input[name=slug]', 'ui-clone');
+    await page.fill('input[name=display_name]', 'UI Clone');
+    await page.click('button:has-text("Clone")');
+    await page.waitForSelector('h1:has-text("Setup · UI Clone")');
+    await page.locator('tr', { hasText: 'feed_photo' }).locator('td:has-text("mock.persona_portrait")').waitFor();
+    assert.ok(await page.locator('text=No persona yet').count(), 'the persona is not copied');
+    assert.ok(await page.locator('text=No reference images yet').count(), 'reference images are not copied');
+    assert.equal(await page.locator('.notice:has-text("Could not load")').count(), 0);
   });
 
   it('signs out', async (t) => {

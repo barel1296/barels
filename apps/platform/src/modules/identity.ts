@@ -151,7 +151,7 @@ export async function getInfluencerDetail(db: Db, ctx: Ctx, influencerId: string
     [influencerId],
   );
   const adapters = await db.query(
-    `SELECT id, kind, status, engine_ref, workflow_keys, approved_by, approved_at, created_at
+    `SELECT id, kind, status, engine_ref, workflow_keys, registered_by, approved_by, approved_at, created_at
        FROM identity.model_adapters WHERE influencer_id = $1 ORDER BY created_at`,
     [influencerId],
   );
@@ -374,6 +374,15 @@ async function personaTransition(
     metadata: { version: row.version },
   });
   return updated;
+}
+
+/** One persona version with its full content (to review it, or to start the next draft from it). */
+export async function getPersonaVersion(db: Db, ctx: Ctx, personaVersionId: string): Promise<PersonaVersionRow> {
+  requirePermission(ctx, 'influencer.read');
+  const row = await maybeOne<PersonaVersionRow>(db, 'SELECT * FROM identity.persona_versions WHERE id = $1', [personaVersionId]);
+  if (!row) throw notFound('Persona version', personaVersionId);
+  requireInfluencerAccess(ctx, row.influencer_id);
+  return row;
 }
 
 export async function submitPersonaVersion(db: Db, ctx: Ctx, personaVersionId: string): Promise<PersonaVersionRow> {
