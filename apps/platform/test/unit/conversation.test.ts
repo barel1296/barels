@@ -110,3 +110,18 @@ describe('invoice payloads', async () => {
     assert.equal(verifyInvoicePayload(secret, 'o1.zz.yy'), null);
   });
 });
+
+describe('caption composition', async () => {
+  const { composeCaption } = await import('../../src/modules/publishing-support.js');
+  it('always keeps the AI disclosure and shortens the body instead', () => {
+    const c = composeCaption({ caption: 'x'.repeat(3000), hashtags: ['a', '#b'], disclosure_text: 'AI-generated virtual creator' }, 2200);
+    assert.ok(c.length <= 2200);
+    assert.ok(c.endsWith('#a #b\n\nAI-generated virtual creator'));
+    assert.match(c, /…/);
+  });
+  it('does not repeat a disclosure already in the caption and caps hashtags', () => {
+    const c = composeCaption({ caption: 'Hello (AI-generated virtual creator)', hashtags: Array.from({ length: 40 }, (_, i) => `t${i}`), disclosure_text: 'AI-generated virtual creator' }, 2200);
+    assert.equal(c.match(/AI-generated virtual creator/g)!.length, 1);
+    assert.equal(c.match(/#t/g)!.length, 30);
+  });
+});

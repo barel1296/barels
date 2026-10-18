@@ -125,6 +125,7 @@ export interface Config {
   instagram: InstagramConfig;
   payments: PaymentsConfig;
   conversation: { replyDebounceMs: number };
+  publishing: { adapters: string[] };
   /** Job runner concurrency (non-GPU background work). */
   jobConcurrency: number;
 }
@@ -257,6 +258,10 @@ export function loadConfig(env: Env = process.env): Config {
       invoiceSecret: Buffer.from(env.INVOICE_SECRET ?? env.ASSET_URL_SECRET ?? '', 'base64'),
       subscriptionGraceHours: int(env, 'SUBSCRIPTION_GRACE_H', 48, 0),
       subscriptionPeriodSeconds: int(env, 'SUBSCRIPTION_PERIOD_S', 2_592_000, 60),
+    },
+    publishing: {
+      /** Channel adapters that may execute publications, e.g. "instagram,telegram". Empty = nothing leaves the platform. */
+      adapters: (env.PUBLISHING_ADAPTERS ?? '').split(',').map((x) => x.trim()).filter(Boolean),
     },
     conversation: {
       replyDebounceMs: int(env, 'CONVERSATION_REPLY_DEBOUNCE_MS', 2500, 0),

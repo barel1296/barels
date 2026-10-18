@@ -45,6 +45,41 @@ export interface TelegramSimulator {
   close(): Promise<void>;
 }
 
+/** Minimal multipart reader: text fields as strings, files as {filename, bytes}. Enough to assert what was uploaded. */
+function parseMultipart(contentType: string, body: Buffer): Record<string, unknown> {
+  const boundary = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
+  const out: Record<string, unknown> = { multipart_bytes: body.length };
+  if (!boundary) return out;
+  const sep = Buffer.from(`--${boundary[1] ?? boundary[2]}`);
+  const files: { field: string; filename: string; bytes: number; mime: string }[] = [];
+  let pos = body.indexOf(sep);
+  while (pos >= 0) {
+    const next = body.indexOf(sep, pos + sep.length);
+    if (next < 0) break;
+    const part = body.subarray(pos + sep.length + 2, next - 2);
+    const headerEnd = part.indexOf('\r\n\r\n');
+    if (headerEnd > 0) {
+      const headers = part.subarray(0, headerEnd).toString('utf8');
+      const content = part.subarray(headerEnd + 4);
+      const name = /name="([^"]+)"/.exec(headers)?.[1];
+      const filename = /filename="([^"]*)"/.exec(headers)?.[1];
+      const mime = /content-type:\s*([^\r\n]+)/i.exec(headers)?.[1] ?? 'application/octet-stream';
+      if (name && filename !== undefined) files.push({ field: name, filename, bytes: content.length, mime });
+      else if (name) out[name] = content.toString('utf8');
+    }
+    pos = next;
+  }
+  out.files = files;
+  if (typeof out.media === 'string') {
+    try {
+      out.media_count = (JSON.parse(out.media) as unknown[]).length;
+    } catch {
+      // leave as text
+    }
+  }
+  return out;
+}
+
 export async function startTelegramSimulator(): Promise<TelegramSimulator> {
   const app = Fastify({ logger: false, bodyLimit: 20 * 1024 * 1024 });
   const bots = new Map<string, SimBot>();
@@ -55,7 +90,7 @@ export async function startTelegramSimulator(): Promise<TelegramSimulator> {
   let nextQuery = 1;
 
   // Multipart uploads (sendPhoto) are accepted and recorded by size only.
-  app.addContentTypeParser(/^multipart\/form-data/, { parseAs: 'buffer' }, (_req, body, done) => done(null, { multipart_bytes: (body as Buffer).length }));
+  app.addContentTypeParser(/^multipart\/form-data/, { parseAs: 'buffer' }, (req, body, done) => done(null, parseMultipart(String(req.headers['content-type']), body as Buffer)));
 
   const ok = (result: unknown) => ({ ok: true, result });
   const err = (code: number, description: string, retryAfter?: number) => ({ ok: false, error_code: code, description, ...(retryAfter ? { parameters: { retry_after: retryAfter } } : {}) });
@@ -84,9 +119,14 @@ export async function startTelegramSimulator(): Promise<TelegramSimulator> {
       }
       case 'sendMessage':
       case 'sendPhoto':
-      case 'sendMediaGroup': {
+      case 'sendVideo': {
         const chatId = Number(params.chat_id);
         return ok({ message_id: bot.nextMessageId++, date: Math.floor(Date.now() / 1000), chat: { id: chatId, type: chatId < 0 ? 'channel' : 'private' }, from: self, text: params.text ?? undefined });
+      }
+      case 'sendMediaGroup': {
+        const chatId = Number(params.chat_id);
+        const n = Math.max(1, Number(params.media_count ?? 2));
+        return ok(Array.from({ length: n }, () => ({ message_id: bot.nextMessageId++, date: Math.floor(Date.now() / 1000), chat: { id: chatId, type: 'channel' }, from: self })));
       }
       case 'answerPreCheckoutQuery':
         preCheckoutAnswers.set(String(params.pre_checkout_query_id), { ok: Boolean(params.ok), ...(params.error_message ? { error_message: String(params.error_message) } : {}) });

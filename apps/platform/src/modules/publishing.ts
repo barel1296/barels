@@ -12,15 +12,15 @@ import { RATINGS, type Rating, loadContentItem } from './content.js';
 import { credentialAad } from './integrations.js';
 
 // -----------------------------------------------------------------------------
-// Channel adapters (Phase 4: Instagram Graph API, Telegram Bot API). None ship
-// in Phase 1, so due publications are held with NO_CHANNEL_ADAPTER instead of
-// being reported as published.
+// Channel adapters (Instagram Graph API, Telegram Bot API). Adapters are opt-in
+// (PUBLISHING_ADAPTERS): without one, due publications are held with
+// NO_CHANNEL_ADAPTER instead of being reported as published.
 // -----------------------------------------------------------------------------
 
 export interface PublishRequest {
   publicationId: string;
   idempotencyKey: string;
-  channel: { id: string; kind: string; external_id: string };
+  channel: { id: string; kind: string; external_id: string; username: string | null };
   revision: { id: string; caption: string | null; hashtags: string[]; alt_text: string | null; disclosure_text: string };
   assets: { media_asset_id: string; role: string; mime_type: string; path: string }[];
   credential: string;
@@ -29,7 +29,10 @@ export interface PublishRequest {
 
 export interface PublishingAdapter {
   readonly channelKind: string;
-  /** Must be idempotent on idempotencyKey. Throw to fail; set `ambiguous` on the error if the outcome is unknown. */
+  /**
+   * Must be idempotent on idempotencyKey where the platform allows it. Throw to fail; set `ambiguous` on the
+   * error if the outcome is unknown, or `retryAfterMs` if the request was definitely not applied.
+   */
   publish(req: PublishRequest): Promise<{ externalPostId: string; permalink?: string | null }>;
 }
 
@@ -46,6 +49,7 @@ export class PublishingAdapters {
 }
 
 const PUBLISHER_ACTOR: Actor = { type: 'system', id: 'publisher' };
+const MAX_PUBLISH_ATTEMPTS = 5;
 
 function ratingIndex(r: Rating): number {
   return RATINGS.indexOf(r);
@@ -173,6 +177,7 @@ interface PublicationRow {
   authorized_content_hash: Buffer | null;
   last_error: { code?: string } | null;
   platform_flags: Record<string, unknown>;
+  attempts: number;
 }
 
 export function publicPublication(p: PublicationRow): Record<string, unknown> {
@@ -259,7 +264,7 @@ export async function publisherTick(svc: Services): Promise<{ held: number; publ
       }
       const adapter = svc.publishingAdapters.get(pub.kind);
       if (!adapter) {
-        await holdPublication(db, pub, 'NO_CHANNEL_ADAPTER', `no publishing adapter for ${pub.kind} (Phase 4); not executed`);
+        await holdPublication(db, pub, 'NO_CHANNEL_ADAPTER', `no publishing adapter enabled for ${pub.kind} (PUBLISHING_ADAPTERS); not executed`);
         return null;
       }
       const opKey = `publish:${pub.id}`;
@@ -298,6 +303,19 @@ export async function publisherTick(svc: Services): Promise<{ held: number; publ
       result.published++;
     } catch (err) {
       const ambiguous = (err as { ambiguous?: boolean }).ambiguous === true;
+      const retryAfterMs = (err as { retryAfterMs?: number }).retryAfterMs;
+      if (!ambiguous && retryAfterMs !== undefined && pub.attempts < MAX_PUBLISH_ATTEMPTS) {
+        // Definitely not applied (rate limit, quota, container still processing): try again later.
+        await withTx(svc.workerPool, async (db) => {
+          await db.query(
+            `UPDATE publishing.publications SET status = 'scheduled', scheduled_for = now() + make_interval(secs => $2::float8 / 1000), last_error = $3, updated_at = now() WHERE id = $1`,
+            [pub.id, retryAfterMs, JSON.stringify({ code: 'PUBLISH_RETRY', message: (err as Error).message, attempt: pub.attempts })],
+          );
+          await db.query(`UPDATE core.external_operations SET status = 'failed_retryable', last_error = $2, updated_at = now() WHERE id = $1`, [opId, JSON.stringify({ message: (err as Error).message })]);
+        });
+        result.failed++;
+        continue;
+      }
       await withTx(svc.workerPool, async (db) => {
         await db.query(`UPDATE publishing.publications SET status = $2, last_error = $3, updated_at = now() WHERE id = $1`, [
           pub.id,
@@ -326,6 +344,7 @@ async function buildPublishRequest(svc: Services, publicationId: string, idempot
     channel_id: string;
     kind: string;
     external_id: string;
+    username: string | null;
     revision_id: string;
     caption: string | null;
     hashtags: string[];
@@ -339,7 +358,7 @@ async function buildPublishRequest(svc: Services, publicationId: string, idempot
     wrapping_key_id: string;
   }>(
     db,
-    `SELECT p.id, p.workspace_id, p.platform_flags, c.id AS channel_id, c.kind, c.external_id, r.id AS revision_id, r.caption, r.hashtags,
+    `SELECT p.id, p.workspace_id, p.platform_flags, c.id AS channel_id, c.kind, c.external_id, c.username, r.id AS revision_id, r.caption, r.hashtags,
             r.alt_text, r.disclosure_text, a.provider, a.external_account_id, a.credential_ciphertext, a.credential_nonce,
             a.data_key_ciphertext, a.wrapping_key_id
        FROM publishing.publications p
@@ -362,7 +381,7 @@ async function buildPublishRequest(svc: Services, publicationId: string, idempot
   return {
     publicationId,
     idempotencyKey,
-    channel: { id: p.channel_id, kind: p.kind, external_id: p.external_id },
+    channel: { id: p.channel_id, kind: p.kind, external_id: p.external_id, username: p.username },
     revision: { id: p.revision_id, caption: p.caption, hashtags: p.hashtags, alt_text: p.alt_text, disclosure_text: p.disclosure_text },
     assets: assets.rows.map((a) => ({ media_asset_id: a.media_asset_id, role: a.role, mime_type: a.mime_type, path: svc.store.pathOf(a.storage_key) })),
     credential,

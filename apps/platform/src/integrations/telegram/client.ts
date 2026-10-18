@@ -212,21 +212,42 @@ export class TelegramClient {
     return this.call('getChatMemberCount', { chat_id: chatId });
   }
 
-  /** Sends a photo from bytes (multipart upload). */
-  async sendPhoto(chatId: number | string, photo: { bytes: Buffer; filename: string; mime: string }, caption?: string): Promise<TgMessage> {
+  /** Multipart call for uploads: `files` are attached by field name; JSON-valued fields are serialised. */
+  async callMultipart<T>(method: string, fields: Record<string, unknown>, files: { field: string; bytes: Buffer; filename: string; mime: string }[], timeoutMs = 120_000): Promise<T> {
     const form = new FormData();
-    form.set('chat_id', String(chatId));
-    if (caption) form.set('caption', caption);
-    form.set('photo', new Blob([photo.bytes], { type: photo.mime }), photo.filename);
+    for (const [k, v] of Object.entries(fields)) {
+      if (v === undefined || v === null) continue;
+      form.set(k, typeof v === 'string' ? v : JSON.stringify(v));
+    }
+    for (const f of files) form.set(f.field, new Blob([f.bytes], { type: f.mime }), f.filename);
     let res: Response;
     try {
-      res = await fetch(`${this.baseUrl}/bot${this.token}/sendPhoto`, { method: 'POST', body: form, signal: AbortSignal.timeout(60_000) });
+      res = await fetch(`${this.baseUrl}/bot${this.token}/${method}`, { method: 'POST', body: form, signal: AbortSignal.timeout(timeoutMs) });
     } catch (err) {
-      throw new TelegramApiError('sendPhoto', null, (err as Error).message, null, true);
+      throw new TelegramApiError(method, null, (err as Error).message, null, true);
     }
-    const body = (await res.json().catch(() => null)) as { ok?: boolean; result?: TgMessage; description?: string; error_code?: number; parameters?: { retry_after?: number } } | null;
-    if (!body?.ok) throw new TelegramApiError('sendPhoto', body?.error_code ?? res.status, body?.description ?? `HTTP ${res.status}`, body?.parameters?.retry_after ?? null);
-    return body.result!;
+    const body = (await res.json().catch(() => null)) as { ok?: boolean; result?: T; description?: string; error_code?: number; parameters?: { retry_after?: number } } | null;
+    if (!body?.ok) throw new TelegramApiError(method, body?.error_code ?? res.status, body?.description ?? `HTTP ${res.status}`, body?.parameters?.retry_after ?? null);
+    return body.result as T;
+  }
+
+  /** Sends a photo from bytes (multipart upload). */
+  sendPhoto(chatId: number | string, photo: { bytes: Buffer; filename: string; mime: string }, caption?: string): Promise<TgMessage> {
+    return this.callMultipart('sendPhoto', { chat_id: String(chatId), caption }, [{ field: 'photo', ...photo }]);
+  }
+
+  sendVideo(chatId: number | string, video: { bytes: Buffer; filename: string; mime: string }, caption?: string): Promise<TgMessage> {
+    return this.callMultipart('sendVideo', { chat_id: String(chatId), caption, supports_streaming: 'true' }, [{ field: 'video', ...video }]);
+  }
+
+  /** 2–10 photos/videos as one album; the caption goes on the first item. */
+  sendMediaGroup(chatId: number | string, items: { type: 'photo' | 'video'; bytes: Buffer; filename: string; mime: string }[], caption?: string): Promise<TgMessage[]> {
+    const media = items.map((it, i) => ({ type: it.type, media: `attach://file${i}`, ...(i === 0 && caption ? { caption } : {}) }));
+    return this.callMultipart(
+      'sendMediaGroup',
+      { chat_id: String(chatId), media },
+      items.map((it, i) => ({ field: `file${i}`, bytes: it.bytes, filename: it.filename, mime: it.mime })),
+    );
   }
 }
 
