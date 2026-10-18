@@ -1,0 +1,9 @@
+### 14-gpu-monitor-simulated-nvidia-smi: env PATH=<scratch>/fakebin:$PATH <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/gpu-monitor.ps1 -OutDir <scratch>/evidence-final/14-gpu -IntervalSec 1 -DurationSec 3
+==> Sampling every 1 s for 3 s -> <scratch>/evidence-final/14-gpu/gpu-20261018-141822.csv
+    ..  14:18:23  GPU 0  VRAM 23900/24463 MB (97.7%)  util 43%  88 C  151.2 W
+    ..  14:18:24  GPU 0  VRAM 23900/24463 MB (97.7%)  util 44%  88 C  151.2 W
+    ..  14:18:25  GPU 0  VRAM 23900/24463 MB (97.7%)  util 45%  88 C  151.2 W
+    OK  3 samples; peak VRAM 23900 MB (97.7%), peak 88 C, peak util 45%, peak 151.2 W
+    !!  6 threshold breach(es); first: 2026-10-18T14:18:23.0116608+00:00 GPU 0 VRAM 97.7%
+    ..  summary: <scratch>/evidence-final/14-gpu/gpu-summary-20261018-141822.json
+### exit code: 2

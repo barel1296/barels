@@ -1,0 +1,54 @@
+# OPTIONAL: local LLM server in Docker (llama.cpp server, CUDA build) for workstations that
+# prefer containers. The native Windows llama-server.exe (LOCAL-LLM.md, option A) is simpler
+# and is what register-services.ps1 can run as a task; use this file only if Docker Desktop
+# with the WSL2 GPU backend is already working (docker run --rm --gpus all ... nvidia-smi).
+#
+# Nothing model-specific is hard-coded: the GGUF file, the served name and the sizes come
+# from the env file (the same golden.env the platform uses):
+#   LLM_MODEL_DIR    host folder holding the .gguf file(s)            e.g. D:\models\llm
+#   LLM_MODEL_FILE   file name inside that folder
+#   LLM_CHAT_MODEL   the name the server answers to (the platform sends it in every request)
+#   LLM_SERVER_PORT  host port (127.0.0.1 only); LLM_BASE_URL=http://127.0.0.1:<port>/v1
+#
+#   docker compose -f deploy\windows\compose.llm.yml --env-file D:\golden\config\golden.env up -d
+#
+# The image tag floats; pin it by digest after the first pull
+# (docker image inspect ghcr.io/ggml-org/llama.cpp:server-cuda --format "{{index .RepoDigests 0}}")
+# and check that its CUDA build supports the card (RTX 50-series needs a CUDA 12.8+ build).
+services:
+  llm:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LLM_SERVER_PORT:-8081}:8080"   # never exposed beyond the workstation
+    volumes:
+      - ${LLM_MODEL_DIR:?set LLM_MODEL_DIR}:/models:ro
+    command:
+      - "-m"
+      - "/models/${LLM_MODEL_FILE:?set LLM_MODEL_FILE}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8080"
+      - "--alias"
+      - "${LLM_CHAT_MODEL:?set LLM_CHAT_MODEL}"
+      - "--jinja"
+      - "-c"
+      - "${LLM_SERVER_CTX:-8192}"
+      - "-np"
+      - "${LLM_SERVER_PARALLEL:-2}"
+      - "-ngl"
+      - "${LLM_SERVER_GPU_LAYERS:-999}"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 120s

@@ -1,0 +1,49 @@
+{
+  "engine": {
+    "id": "01a14f60-4073-716a-ab56-4cd0b058bf3b",
+    "engine_key": "ws-comfyui",
+    "base_url": "http://127.0.0.1:8190/vec/v1",
+    "contract_version": "1.0",
+    "reported_engine_id": "ws-comfyui",
+    "reported_engine_version": "1.0.0",
+    "engine_kind": "comfyui",
+    "capabilities": {
+      "progress": false,
+      "callbacks": false,
+      "cancellation": true,
+      "output_transfer": [
+        "http_download"
+      ],
+      "resource_release": true,
+      "max_concurrent_jobs": 1
+    },
+    "advertised_max_concurrent_jobs": 1,
+    "dispatch_limit": null,
+    "media_lane_vram_mb": null,
+    "status": "active",
+    "health": "ready",
+    "last_seen_at": "2026-10-18T14:17:50.441Z",
+    "last_sync_at": "2026-10-18T14:17:50.522Z",
+    "last_error": null,
+    "created_at": "2026-10-18T14:17:50.441Z",
+    "updated_at": "2026-10-18T14:17:50.441Z"
+  },
+  "health": {
+    "health": "ready"
+  },
+  "health_error": null,
+  "sync": {
+    "engine_id": "01a14f60-4073-716a-ab56-4cd0b058bf3b",
+    "engine_kind": "comfyui",
+    "added": [],
+    "unchanged": [
+      "__conformance__.solid_color@1.0.0",
+      "sim.portrait@1.0.0"
+    ],
+    "conflicts": [],
+    "invalid": [],
+    "hash_mismatch": [],
+    "no_longer_offered": []
+  },
+  "sync_error": null
+}

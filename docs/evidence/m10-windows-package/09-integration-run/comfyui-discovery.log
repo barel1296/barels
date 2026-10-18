@@ -1,0 +1,9 @@
+==> Looking for ComfyUI processes (read-only)
+    ..  not Windows: process scan skipped, probing URLs only
+    OK  0 ComfyUI-like process(es); ports to probe: 8188
+==> Probing /system_stats
+    OK  http://127.0.0.1:42441  ComfyUI 0.0.0-simulated  GPU: SIMULATED GPU (no hardware) (24576 MB)  node types: 8
+    ..  Set COMFYUI_URL=http://127.0.0.1:42441 in golden.env (or re-run with -WriteEnv)
+==> Checking Track A packages in <scratch>/gi-e2e/packages against http://127.0.0.1:42441 (read-only)
+    OK  all packages can run on this ComfyUI
+    OK  report written to <scratch>/gi-e2e/evidence/integration-20261018-141751/comfyui-discovery.json

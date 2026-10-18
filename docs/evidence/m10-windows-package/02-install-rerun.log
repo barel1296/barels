@@ -1,0 +1,26 @@
+### 02-install-rerun: <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/install.ps1 -InstallRoot <scratch>/gi-e2e -Postgres native -PgAdminUrl postgres://postgres:<redacted>@127.0.0.1:55433/postgres -SkipBuild
+==> Checking prerequisites
+    OK  Node.js 22.22.0
+    OK  PostgreSQL client tools: /usr/bin
+==> Creating folders under <scratch>/gi-e2e
+    OK  <scratch>/gi-e2e/config, <scratch>/gi-e2e/media, <scratch>/gi-e2e/backups, <scratch>/gi-e2e/bridge, <scratch>/gi-e2e/packages, <scratch>/gi-e2e/logs, <scratch>/gi-e2e/evidence, <scratch>/gi-e2e/audit
+==> Preparing <scratch>/gi-e2e/config/golden.env
+    ..  exists; only empty values are filled in
+    OK  env file readable only by this account, SYSTEM and Administrators
+==> Preparing PostgreSQL (native)
+roles aios_migrator/aios_app/aios_worker ready; database golden_e2e owned by aios_migrator
+    OK  roles aios_migrator / aios_app / aios_worker and the database are ready
+==> Applying migrations
+applied: []; already applied: [0001, 0002, 0003, 0004, 0005, 0006, 0007, 0008]
+all partitions present
+    OK  schema up to date; partitions for the next 3 months exist
+==> Done
+
+Next steps (see deploy\windows\README.md):
+  1. Discover the existing ComfyUI (read-only):   deploy\windows\discover-comfyui.ps1 -InstallRoot "<scratch>/gi-e2e" -WriteEnv
+  2. Set up the local LLM and put LLM_BASE_URL / LLM_CHAT_MODEL in <scratch>/gi-e2e/config/golden.env (deploy\windows\LOCAL-LLM.md)
+  3. Register and start the services:            deploy\windows\register-services.ps1 -InstallRoot "<scratch>/gi-e2e"
+  4. Check health:                               deploy\windows\health-check.ps1 -InstallRoot "<scratch>/gi-e2e"
+  5. Run the acceptance tests on the hardware:   deploy\windows\integration-test.ps1 -InstallRoot "<scratch>/gi-e2e"
+  Back up MASTER_KEY from <scratch>/gi-e2e/config/golden.env OFFLINE now: without it no stored credential can be decrypted.
+### exit code: 0

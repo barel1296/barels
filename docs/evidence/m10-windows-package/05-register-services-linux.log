@@ -1,0 +1,7 @@
+### 05-register-services-linux: <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/register-services.ps1 -InstallRoot <scratch>/gi-e2e
+Exception: /home/user/barels/deploy/windows/common.ps1:29
+Line |
+  29 |  function Fail([string]$Message) { throw "FAILED: $Message" }
+     |                                    ~~~~~~~~~~~~~~~~~~~~~~~~
+     | FAILED: scheduled tasks are Windows-only
+### exit code: 1

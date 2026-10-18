@@ -1,0 +1,4 @@
+before replace: after-backup,golden
+after replace:  golden
+databases:      golden_e2e,golden_e2e_before_restore_20261018_141814
+backup_runs:    backup:succeeded, restore:succeeded

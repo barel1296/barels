@@ -1,0 +1,62 @@
+### 01-install: env GI_NEW_PASSWORD=<redacted> <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/install.ps1 -InstallRoot <scratch>/gi-e2e -Postgres native -PgAdminUrl postgres://postgres:<redacted>@127.0.0.1:55433/postgres -SkipBuild -OwnerEmail owner@example.test -OwnerName Owner Test
+==> Checking prerequisites
+    OK  Node.js 22.22.0
+    OK  PostgreSQL client tools: /usr/bin
+==> Creating folders under <scratch>/gi-e2e
+    OK  <scratch>/gi-e2e/config, <scratch>/gi-e2e/media, <scratch>/gi-e2e/backups, <scratch>/gi-e2e/bridge, <scratch>/gi-e2e/packages, <scratch>/gi-e2e/logs, <scratch>/gi-e2e/evidence, <scratch>/gi-e2e/audit
+==> Preparing <scratch>/gi-e2e/config/golden.env
+    ..  exists; only empty values are filled in
+    OK  MEDIA_ROOT = <scratch>/gi-e2e/media
+    OK  AUDIT_EXPORT_DIR = <scratch>/gi-e2e/audit
+    OK  COMFY_BRIDGE_DATA_DIR = <scratch>/gi-e2e/bridge
+    OK  COMFY_BRIDGE_PACKAGES_DIR = <scratch>/gi-e2e/packages
+    OK  NODE_NAME = vm
+    OK  MASTER_KEY generated
+    OK  ASSET_URL_SECRET generated
+    OK  INVOICE_SECRET generated
+    OK  VEC_ENGINE_TOKEN generated
+    OK  METRICS_TOKEN generated
+    OK  PG_MIGRATOR_PASSWORD generated
+    OK  PG_APP_PASSWORD generated
+    OK  PG_WORKER_PASSWORD generated
+    OK  DATABASE_URL set (role aios_app)
+    OK  WORKER_DATABASE_URL set (role aios_worker)
+    OK  MIGRATION_DATABASE_URL set (role aios_migrator)
+    OK  env file readable only by this account, SYSTEM and Administrators
+==> Preparing PostgreSQL (native)
+roles aios_migrator/aios_app/aios_worker ready; database golden_e2e owned by aios_migrator
+    OK  roles aios_migrator / aios_app / aios_worker and the database are ready
+==> Applying migrations
+applying 0001_baseline
+applying 0002_visual_engine_contract
+applying 0003_platform_services
+applying 0004_conversations
+applying 0005_monetization
+applying 0006_comments
+applying 0007_agents
+applying 0008_analytics
+applied: [0001, 0002, 0003, 0004, 0005, 0006, 0007, 0008]; already applied: []
+created: core.audit_log_2026_11, core.audit_log_2026_12, core.audit_log_2027_01, conversation.messages_2026_11, conversation.messages_2026_12, conversation.messages_2027_01, analytics.metric_snapshots_2026_11, analytics.metric_snapshots_2026_12, analytics.metric_snapshots_2027_01, analytics.events_2026_11, analytics.events_2026_12, analytics.events_2027_01, analytics.usage_events_2026_11, analytics.usage_events_2026_12, analytics.usage_events_2027_01
+    OK  schema up to date; partitions for the next 3 months exist
+==> Creating workspace 'studio' and owner owner@example.test
+{
+  "workspace_id": "01a14f5f-fe20-79af-9cad-b9efe7bec9d3",
+  "user_id": "01a14f5f-fe20-7c55-a56b-925683386708",
+  "token": "<redacted>"
+}
+Store the token now; it cannot be shown again.
+password set; existing sessions revoked
+    ..  Store the owner API token printed above; scan the otpauth URI below with an authenticator app (both shown once):
+otpauth URI (add to an authenticator app, then discard):
+otpauth://totp/Golden%20Influencer%3Aowner%40example.test?secret=<redacted>&issuer=Golden%20Influencer&algorithm=SHA1&digits=6&period=30
+secret: <redacted>
+==> Done
+
+Next steps (see deploy\windows\README.md):
+  1. Discover the existing ComfyUI (read-only):   deploy\windows\discover-comfyui.ps1 -InstallRoot "<scratch>/gi-e2e" -WriteEnv
+  2. Set up the local LLM and put LLM_BASE_URL / LLM_CHAT_MODEL in <scratch>/gi-e2e/config/golden.env (deploy\windows\LOCAL-LLM.md)
+  3. Register and start the services:            deploy\windows\register-services.ps1 -InstallRoot "<scratch>/gi-e2e"
+  4. Check health:                               deploy\windows\health-check.ps1 -InstallRoot "<scratch>/gi-e2e"
+  5. Run the acceptance tests on the hardware:   deploy\windows\integration-test.ps1 -InstallRoot "<scratch>/gi-e2e"
+  Back up MASTER_KEY from <scratch>/gi-e2e/config/golden.env OFFLINE now: without it no stored credential can be decrypted.
+### exit code: 0

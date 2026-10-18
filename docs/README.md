@@ -1,6 +1,6 @@
 # AI Influencer Operating System: Architecture & Implementation Plan
 
-> Status: **Phase 1 implemented: platform foundation + first vertical slice, contract-tested only** (see [16 — Implementation status](16-implementation-status.md)). Architecture below remains the design. · Revision: **2026-10-18 — MVP scope update: 20–30 personas on one Windows workstation (RTX 5090 Laptop, 24 GB), all AI inference local, ComfyUI as media engine** · Previous revision: 2026-10-14 (cloud design)
+> Status: **Platform and Windows deployment package implemented. 216/216 automated tests pass against simulated external systems. Not yet run on the workstation or with real ComfyUI, LLM, Telegram or Meta** (see [16 — Implementation status](16-implementation-status.md)). Architecture below remains the design. · Revision: **2026-10-18 — MVP scope update: 20–30 personas on one Windows workstation (RTX 5090 Laptop, 24 GB), all AI inference local, ComfyUI as media engine** · Previous revision: 2026-10-14 (cloud design)
 
 ## Executive summary
 

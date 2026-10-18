@@ -1,0 +1,10 @@
+### 12-restore-replace: bash -c echo golden_e2e | <scratch>/pwsh/pwsh -NoProfile -File deploy/windows/restore.ps1 -InstallRoot <scratch>/gi-e2e -BackupDir <scratch>/gi-e2e/backups/20261018-141805 -Mode Replace -Force -PgAdminUrl 'postgres://postgres:<redacted>@127.0.0.1:55433/postgres'
+==> Verifying the backup
+    OK  db.dump checksum matches
+Type the database name (golden_e2e) to replace it with the backup from 10/18/2026 14:18:05: golden_e2e
+    OK  current database kept as golden_e2e_before_restore_20261018_141814 (drop it once the restore is confirmed)
+recorded backup (succeeded)
+==> Restoring missing media files into <scratch>/gi-e2e/media
+    OK  restored; schema 0008. Run migrate.ps1 if this backup predates the installed code, then health-check.ps1.
+recorded restore (succeeded)
+### exit code: 0

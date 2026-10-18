@@ -1,0 +1,114 @@
+{
+  "checked_at": "2026-10-18T14:17:53.5768588+00:00",
+  "healthy": true,
+  "results": [
+    {
+      "check": "postgresql",
+      "status": "ok",
+      "critical": true,
+      "detail": "127.0.0.1:55433 listening"
+    },
+    {
+      "check": "platform_api",
+      "status": "ok",
+      "critical": true,
+      "detail": "http://127.0.0.1:18080"
+    },
+    {
+      "check": "platform_ready",
+      "status": "ok",
+      "critical": false,
+      "detail": "{\"status\":\"ok\",\"components\":{\"database\":\"ok\",\"migrations\":\"ok\",\"visual_engine\":\"ok\",\"llm\":\"ok\",\"job_queue\":\"ok\",\"telegram_polling\":\"disabled\",\"alerts\":\"ok\",\"backup\":\"degraded\",\"gpu\":\"degraded\"}}"
+    },
+    {
+      "check": "metrics",
+      "status": "ok",
+      "critical": false,
+      "detail": "Prometheus metrics served"
+    },
+    {
+      "check": "component:database",
+      "status": "ok",
+      "critical": true,
+      "detail": ""
+    },
+    {
+      "check": "component:migrations",
+      "status": "ok",
+      "critical": true,
+      "detail": "{\"version\":\"0008\"}"
+    },
+    {
+      "check": "component:visual_engine",
+      "status": "ok",
+      "critical": false,
+      "detail": "{\"engines\":[{\"engine_key\":\"ws-comfyui\",\"health\":\"ready\",\"engine_kind\":\"comfyui\",\"last_seen_at\":\"2026-10-18T14:17:50.441Z\"}]}"
+    },
+    {
+      "check": "component:llm",
+      "status": "ok",
+      "critical": false,
+      "detail": "{\"configured_model\":\"sim-chat-model\",\"served_models\":[\"sim-chat-model\"],\"inFlight\":0,\"queued\":0,\"total\":0,\"errors\":0,\"p95Ms\":null}"
+    },
+    {
+      "check": "component:job_queue",
+      "status": "ok",
+      "critical": false,
+      "detail": "{\"dead\":0,\"backlog\":0,\"oldest_s\":null}"
+    },
+    {
+      "check": "component:telegram_polling",
+      "status": "disabled",
+      "critical": false,
+      "detail": "\"no bot polling yet\""
+    },
+    {
+      "check": "component:alerts",
+      "status": "ok",
+      "critical": false,
+      "detail": "{\"critical\":0,\"warning\":2}"
+    },
+    {
+      "check": "component:backup",
+      "status": "degraded",
+      "critical": false,
+      "detail": "\"no successful backup recorded\""
+    },
+    {
+      "check": "component:gpu",
+      "status": "degraded",
+      "critical": false,
+      "detail": "{\"latest\":[]}"
+    },
+    {
+      "check": "comfy_bridge",
+      "status": "ok",
+      "critical": false,
+      "detail": "ComfyUI 0.0.0-simulated"
+    },
+    {
+      "check": "comfyui",
+      "status": "ok",
+      "critical": false,
+      "detail": "SIMULATED GPU (no hardware); VRAM free 20480 / 24576 MB"
+    },
+    {
+      "check": "llm",
+      "status": "ok",
+      "critical": false,
+      "detail": "sim-chat-model served at http://127.0.0.1:18091/v1"
+    },
+    {
+      "check": "gpu",
+      "status": "unknown",
+      "critical": false,
+      "detail": "nvidia-smi not found"
+    },
+    {
+      "check": "disk",
+      "status": "degraded",
+      "critical": false,
+      "detail": "28.6 GB free on / (media root)"
+    }
+  ]
+}

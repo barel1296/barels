@@ -1,0 +1,38 @@
+{
+  "kind": "llm_benchmark",
+  "measured_against": "http://127.0.0.1:18091/v1",
+  "model": "sim-chat-model",
+  "started_at": "2026-10-18T14:17:57.780Z",
+  "finished_at": "2026-10-18T14:17:57.942Z",
+  "runs": 4,
+  "concurrency": 2,
+  "results": [
+    {
+      "scenario": "persona_reply",
+      "requests": 4,
+      "ok": 4,
+      "errors": [],
+      "latency_ms": {
+        "p50": 10,
+        "p95": 35,
+        "max": 87
+      },
+      "completion_tokens_per_s_p50": 314.2857142857143,
+      "guard_pass_rate": 1
+    },
+    {
+      "scenario": "memory_extraction_json",
+      "requests": 2,
+      "ok": 2,
+      "errors": [],
+      "latency_ms": {
+        "p50": 6,
+        "p95": 6,
+        "max": 7
+      },
+      "completion_tokens_per_s_p50": 3000,
+      "json_valid_rate": 1
+    }
+  ],
+  "note": "Measured values from this run only. They describe the server at measured_against; a simulator run proves the harness, not a model."
+}

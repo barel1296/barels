@@ -1,0 +1,25 @@
+### 07-conformance: <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/conformance.ps1 -InstallRoot <scratch>/gi-e2e -OutDir <scratch>/evidence-final
+==> VEC v1 conformance against http://127.0.0.1:8190/vec/v1
+Visual Engine Contract v1 conformance — http://127.0.0.1:8190/vec/v1
+engine: ws-comfyui 1.0.0 (engine_kind=comfyui)
+  PASS  C01  auth required                  401 UNAUTHORIZED
+  PASS  C02  engine info                    ws-comfyui 1.0.0 (comfyui)
+  PASS  C03  workflow discovery             manifest_sha256 e8b0b14e8d9c… verified
+  PASS  C04  manifest valid                 schema-valid; input_schema matches normative example
+  PASS  C05  unknown workflow               404 WORKFLOW_NOT_FOUND
+  PASS  C06  submit and succeed             2 outputs downloaded and verified
+  PASS  C07  idempotent replay              replay → same job cb_mvdwtxbp_6crnpt
+  PASS  C08  idempotency conflict           409 IDEMPOTENCY_CONFLICT
+  PASS  C09  new attempt                    new job cb_mvdwtxcr_8bz7ea
+  PASS  C10  parameter validation           422 PARAMETER_VALIDATION_FAILED
+  PASS  C11  unsupported contract version   400 UNSUPPORTED_CONTRACT_VERSION
+  PASS  C12  cancellation                   cancelled while running
+  PASS  C13  cancel terminal job            terminal job unchanged
+  PASS  C14  unknown job                    404 JOB_NOT_FOUND
+  PASS  C15  resources                      status ready
+  PASS  C16  status schema                  13 status payloads valid
+
+16/16 passed — CONFORMANT
+Conformance is necessary but not sufficient for production; real workflows still need end-to-end validation on the workstation.
+    OK  CONFORMANT; report: <scratch>/evidence-final/vec-conformance-20261018-141746.json
+### exit code: 0

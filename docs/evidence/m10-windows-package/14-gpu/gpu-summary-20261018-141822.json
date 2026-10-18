@@ -1,0 +1,22 @@
+{
+  "samples": 3,
+  "peak_vram_mb": 23900.0,
+  "peak_vram_pct": 97.7,
+  "peak_temp_c": 88.0,
+  "peak_util_pct": 45.0,
+  "peak_power_w": 151.2,
+  "thresholds": {
+    "vram_pct": 97.0,
+    "temp_c": 87
+  },
+  "breaches": [
+    "2026-10-18T14:18:23.0116608+00:00 GPU 0 VRAM 97.7%",
+    "2026-10-18T14:18:23.0116608+00:00 GPU 0 88 C",
+    "2026-10-18T14:18:24.1470863+00:00 GPU 0 VRAM 97.7%",
+    "2026-10-18T14:18:24.1470863+00:00 GPU 0 88 C",
+    "2026-10-18T14:18:25.1807957+00:00 GPU 0 VRAM 97.7%",
+    "2026-10-18T14:18:25.1807957+00:00 GPU 0 88 C"
+  ],
+  "gpu_csv": "<scratch>/evidence-final/14-gpu/gpu-20261018-141822.csv",
+  "process_csv": "<scratch>/evidence-final/14-gpu/gpu-procs-20261018-141822.csv"
+}

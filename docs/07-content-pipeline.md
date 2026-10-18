@@ -99,7 +99,7 @@ The **residual risk is accepted and recorded** (doc 03, R8).
 
 ## 3. Workflows
 
-*(Superseded on the platform side by `inference.visual_workflows`, which holds contract manifests with no graphs; see doc 16 §5. The list below is guidance for Track A's engine.)* All ComfyUI workflows are versioned:
+*(Superseded on the platform side by `inference.visual_workflows`, which holds contract manifests with no graphs; see doc 16 §6. The list below is guidance for Track A's engine.)* All ComfyUI workflows are versioned:
 
 - the API-format graph and parameter bindings;
 - pinned models and custom nodes;

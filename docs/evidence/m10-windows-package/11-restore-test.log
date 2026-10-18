@@ -1,0 +1,8 @@
+### 11-restore-test: <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/restore.ps1 -InstallRoot <scratch>/gi-e2e -BackupDir <scratch>/gi-e2e/backups/20261018-141805 -PgAdminUrl postgres://postgres:<redacted>@127.0.0.1:55433/postgres
+==> Verifying the backup
+    OK  db.dump checksum matches
+==> Restoring into a NEW database golden_e2e_restore_20261018_141807 (production untouched)
+    OK  schema 0008; 1 influencers, 0 fans, 0 messages, 0 payments, 2 media assets
+    OK  dropped golden_e2e_restore_20261018_141807
+recorded restore_test (succeeded)
+### exit code: 0

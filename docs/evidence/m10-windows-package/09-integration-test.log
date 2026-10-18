@@ -1,0 +1,13 @@
+### 09-integration-test: env GI_API_TOKEN=<redacted> <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/integration-test.ps1 -InstallRoot <scratch>/gi-e2e -LlmRuns 4 -Generate -InfluencerId 01a14f60-410d-73ee-9c03-13222e0f1468 -Purpose feed_photo -ParametersJson {"scene":"golden hour rooftop","seed":21} -GenerateTimeoutSec 180
+    !!  SIMULATED backends: comfyui, llm (script exercise, NOT hardware acceptance)
+==> Integration run 20261018-141751 on vm -> <scratch>/gi-e2e/evidence/integration-20261018-141751
+    OK  health       PASSED   critical services up
+    OK  comfyui      PASSED   existing ComfyUI at http://127.0.0.1:42441 (read-only probe)
+    OK  conformance  PASSED   bridge is VEC v1 conformant
+    OK  llm          PASSED   persona_reply p50 10 ms, p95 35 ms, 314.3 tok/s
+    OK  api          PASSED   authenticated as 01a14f5f-fe20-7c55-a56b-925683386708 (platform admin: True)
+    OK  engine       PASSED   engine ws-comfyui: health ok; sync ok
+    ..  visual job 01a14f60-5ff0-75a1-9922-0fb88e38df0e created; polling (timeout 180 s)
+    OK  generate     PASSED   job succeeded in 6 s, platform validation_scope=real_engine; 1 media asset(s); the ComfyUI behind the bridge is SIMULATED
+==> Evidence: <scratch>/gi-e2e/evidence/integration-20261018-141751
+### exit code: 0

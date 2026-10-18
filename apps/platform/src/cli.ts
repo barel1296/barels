@@ -220,7 +220,8 @@ const commands: Record<string, { help: string; run: (f: Flags) => Promise<void> 
   'backup:record': {
     help: 'Record a backup/restore run from a manifest JSON written by the backup scripts: --manifest <file> [--kind backup|restore_test|restore]',
     run: async (f) => {
-      const manifest = JSON.parse(await readFile(need(f, 'manifest'), 'utf8')) as { started_at: string; finished_at?: string; status: string; location?: string; error?: string };
+      // Files written by Windows PowerShell 5.1 may start with a byte-order mark.
+      const manifest = JSON.parse((await readFile(need(f, 'manifest'), 'utf8')).replace(/^\uFEFF/, '')) as { started_at: string; finished_at?: string; status: string; location?: string; error?: string };
       const kind = typeof f.kind === 'string' ? f.kind : 'backup';
       const svc = createServices(loadConfig());
       try {

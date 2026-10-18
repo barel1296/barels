@@ -169,7 +169,9 @@ function int(env: Env, name: string, fallback: number, min = 0): number {
   return n;
 }
 
-export function loadConfig(env: Env = process.env): Config {
+export function loadConfig(rawEnv: Env = process.env): Config {
+  // An empty value (e.g. `MEDIA_ROOT=` in an env file) means "not set", never "empty string".
+  const env: Env = Object.fromEntries(Object.entries(rawEnv).filter(([, v]) => v !== undefined && v !== ''));
   const masterKey = parseMasterKey(env.MASTER_KEY_ID ?? 'local-1', required(env, 'MASTER_KEY'));
   const masterKeys = new Map<string, MasterKey>([[masterKey.id, masterKey]]);
   if (env.MASTER_KEY_PREVIOUS && env.MASTER_KEY_PREVIOUS_ID) {

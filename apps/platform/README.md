@@ -1,16 +1,23 @@
 # Golden Influencer platform (Track B)
 
-This is the platform backend: a modular monolith in TypeScript on Node 22, with PostgreSQL 16 as both the system of record and the persistent job queue. Phase 1 implements the **first vertical slice**:
+This is the platform: a modular monolith in TypeScript on Node 22, with PostgreSQL 16 as both the system of record and the persistent job queue. One process serves the API, the admin dashboard and the background worker. It covers:
 
-- influencer and persona configuration;
-- the ComfyUI integration gateway (Visual Engine Contract v1);
-- GPU-aware media job scheduling;
-- asset ingestion and QA;
-- human approval;
-- publication scheduling;
-- a full audit trail.
+- influencers, persona versions, identity material and golden-template cloning;
+- the ComfyUI integration gateway (Visual Engine Contract v1) with GPU-aware scheduling, ingestion and QA;
+- a generic **ComfyUI bridge** (`src/comfy-bridge`) for the existing ComfyUI installation;
+- the local LLM gateway, Telegram conversations, consent, guards, escalations and fan memory;
+- Telegram Stars subscriptions, entitlements, refunds and reconciliation;
+- Instagram and Telegram publishing, and comment moderation;
+- agents with autonomy policies and automated caption QA;
+- analytics and cost attribution;
+- staff authentication with TOTP, RBAC, an audit hash chain, monitoring and backups.
 
-> **Validation status.** The slice is **contract-tested only**. It runs end to end against the contract test adapter (`src/mock-engine`, `engine_kind = contract_mock`). **It has not been run against a real ComfyUI-backed engine or on the workstation.** Contract-mock output is labelled, can never be published, and does not count as production validation. See `docs/16-implementation-status.md`.
+**Deploying on the Windows workstation:** see [`deploy/windows/README.md`](../../deploy/windows/README.md).
+
+> **Validation status.**
+> - Everything is covered by automated tests against real PostgreSQL 16 and **simulated** external systems: LLM, Telegram, Instagram, ComfyUI, and the contract-mock engine. The dashboard is tested in a real Chromium.
+> - **Nothing has run against a real ComfyUI, a real local model, real Telegram/Meta accounts, or on the workstation.** Simulated output is labelled, contract-mock output can never be published, and neither counts as production validation.
+> - See [`docs/16-implementation-status.md`](../../docs/16-implementation-status.md).
 
 ## Ownership boundary
 
@@ -39,27 +46,43 @@ The platform never sees node graphs or model names. It knows workflow keys and S
 ```
 apps/platform/
   src/
-    config.ts            environment → typed config
+    config.ts            environment → typed config (empty values count as unset)
     main.ts              process entry (API + worker, or --api / --worker)
-    cli.ts               operator commands (bootstrap, migrate, workspace, users, keys)
-    worker.ts            background loops: engine health, dispatch, poll, ingest recovery, publish
-    api/                 Fastify server, auth hook, routes, signed asset URLs
+    cli.ts               operator commands (bootstrap, migrate, workspace, users, keys, health, backup:record, llm:bench, audit)
+    registry.ts          handlers, subscriptions, periodic tasks and loops contributed by modules
+    wiring.ts            which contributions run (Telegram, monetization, Instagram, agents, analytics)
+    worker.ts            job runner lanes (payments, conversation, default) and loops
+    services.ts          pools, store, engine clients, LLM gateway, publishing adapters
+    api/                 Fastify server, auth (sessions + TOTP, API tokens, CSRF), routes per area, dashboard + previews
     contract/            Visual Engine Contract: types, JSON Schema validator, HTTP client
     db/                  pools, tenant transactions (RLS), migration runner
-    lib/                 canonical JSON/hashing, crypto (envelope, tokens, signed URLs), semver, PNG/MIME
+    lib/                 canonical JSON/hashing, crypto, TOTP, semver, PNG/JPEG/MIME
     modules/
       identity.ts        influencers, persona versions, reference assets, adapters, bindings, QA thresholds
+      templates.ts       golden-template cloning (configuration only; never fans, payments or credentials)
       visual/            engines, workflow registry, job state machine, GPU scheduler, dispatcher, poller, ingest, QA
       content.ts         content items, immutable revisions, approval requests
       approvals.ts       decisions bound to payload hashes
-      integrations.ts    encrypted platform credentials, channels
-      publishing.ts      scheduling, publisher (adapter registry; no adapters in Phase 1)
-      history.ts         content lineage and audit queries
+      conversation/      engine (debounce, consent, modes, allowances), guards, prompt, fan memory, inbox/escalations
+      crm.ts             fans, consents, erasure
+      llm/               OpenAI-compatible gateway (chat lane, priorities), usage, benchmark
+      monetization/      catalog, Telegram Stars invoices/payments, entitlements, refunds, reconciliation
+      agents/            definitions, runner, policy engine, executor, caption QA
+      analytics/         metrics ingestion, daily KPI rollups, cost attribution
+      publishing.ts      scheduling and the publisher (adapters opt in with PUBLISHING_ADAPTERS)
+      monitoring.ts      health report, GPU sampling, Prometheus metrics; alerts.ts, audit-seal.ts, outbox.ts
+    integrations/
+      telegram/          Bot API client, long-poll ingestion, bot routing, channel publisher
+      instagram/         Graph API client, publisher, comments
+    comfy-bridge/        VEC v1 engine in front of the EXISTING ComfyUI (discover, check-packages, serve)
+    simulators/          SIMULATED LLM, Telegram, Instagram and ComfyUI servers for tests
     mock-engine/         CONTRACT TEST ADAPTER (not an engine)
     conformance/         conformance runner C01–C16
-  test/                  unit, integration (PostgreSQL), e2e (API + worker + mock)
-db/                      bootstrap.sql (roles), migrations/ (authoritative schema)
-contracts/visual-engine/ the contract (OpenAPI, JSON Schemas, examples, fixtures)
+  web/admin/             admin dashboard (no framework, strict CSP, text-only rendering)
+  test/                  unit, integration (PostgreSQL), e2e (API + worker + simulators + Chromium)
+db/                      bootstrap.sql (roles), migrations/ (authoritative schema, 0001–0008)
+contracts/visual-engine/ the contract (OpenAPI, JSON Schemas, examples, fixtures) and the bridge package format
+deploy/windows/          workstation installation, services, health, backup/restore, acceptance scripts and guides
 ops/                     docker-compose (PostgreSQL), env template, host verification scripts
 ```
 
@@ -292,7 +315,7 @@ Back up all three; none is sufficient alone:
 - the `MEDIA_ROOT` directory (content-addressed, immutable files);
 - the `MASTER_KEY`, offline and separately.
 
-Restore-test regularly (docs/09).
+On the workstation, `deploy/windows/backup.ps1` and `restore.ps1` do this (verified dump, incremental media mirror, restore test into a scratch database, Replace with rollback). See [BACKUP-RESTORE.md](../../deploy/windows/BACKUP-RESTORE.md). Restore-test monthly.
 
 ### Key rotation
 
@@ -321,10 +344,13 @@ npm test                   # everything
 
 CI (`.github/workflows/ci.yml`) runs all of these, plus the conformance CLI against the mock, on every push.
 
-| Validated here | Not validated here |
+| Validated here (automated) | Not validated here |
 |---|---|
-| Platform workflow end to end through the API | Real ComfyUI generation (Track A engine not available) |
-| Contract client behaviour (idempotency, retries, timeouts, cancellation, verification) against the mock | Image quality and identity consistency |
-| RLS, RBAC, approval binding, append-only audit, encryption | GPU behaviour, VRAM figures, throughput (no GPU here) |
-| Scheduler policy (priority, aging, fair share, admission) as logic | Scheduler behaviour under real GPU load |
-| Publication guards | Instagram / Telegram publishing (no adapters yet) |
+| Platform workflows end to end through the API, the worker and the dashboard (real Chromium) | Real ComfyUI generation, image quality and identity consistency (Track A) |
+| Contract client and the ComfyUI bridge against the contract mock and the SIMULATED ComfyUI | The bridge against the real ComfyUI installation (COMFYUI.md §6 checks) |
+| Conversations, guards, memory and agents against the SIMULATED LLM | Any real model: quality, latency, JSON validity, VRAM |
+| Telegram bots, Stars payments, refunds, reconciliation against the SIMULATED Bot API | Real Telegram, real Stars |
+| Instagram publishing, comments and insights against the SIMULATED Graph API | Real Meta accounts, app review, the public media tunnel |
+| RLS, RBAC, four-eyes rules, append-only audit, encryption on PostgreSQL 16 (Linux) | PostgreSQL and Node on Windows (ACCEPTANCE-TESTS W1.3) |
+| Scheduler policy as logic; GPU sampling parsing | Scheduling under real GPU load; real VRAM figures |
+| Windows deployment scripts under PowerShell 7 on Linux (`docs/evidence/m10-windows-package`) | Windows PowerShell 5.1, scheduled tasks, the workstation itself |

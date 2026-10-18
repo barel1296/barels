@@ -5,6 +5,8 @@ import { parseNvidiaSmiCsv } from '../../src/modules/monitoring.js';
 import { matches } from '../../src/modules/outbox.js';
 import { chainHash } from '../../src/modules/audit-seal.js';
 import { backoffMs } from '../../src/modules/jobs-queue.js';
+import { loadConfig, paths } from '../../src/config.js';
+import { resolve } from 'node:path';
 
 describe('nvidia-smi parsing', () => {
   it('parses CSV rows and tolerates N/A fields', () => {
@@ -41,5 +43,29 @@ describe('outbox and jobs', () => {
   it('chains audit seals', () => {
     const r = Buffer.alloc(32, 1);
     assert.notDeepEqual(chainHash(null, r), chainHash(Buffer.alloc(32, 2), r));
+  });
+});
+
+describe('configuration from an env file', () => {
+  const base = {
+    MASTER_KEY: Buffer.alloc(32, 7).toString('base64'),
+    ASSET_URL_SECRET: Buffer.alloc(32, 9).toString('base64'),
+    DATABASE_URL: 'postgres://aios_app:x@127.0.0.1:5432/golden',
+    WORKER_DATABASE_URL: 'postgres://aios_worker:x@127.0.0.1:5432/golden',
+  };
+
+  it('treats empty values (KEY= lines of the template) as not set', () => {
+    // deploy/windows/install.ps1 copies ops/env.example, where optional keys are present but empty.
+    const cfg = loadConfig({ ...base, MEDIA_ROOT: '', LLM_BASE_URL: '', LLM_CHAT_MODEL: '', HTTP_PORT: '', PUBLISHING_ADAPTERS: '' });
+    assert.equal(cfg.mediaRoot, resolve(paths.repoRoot, 'var/media'), 'an empty MEDIA_ROOT must not resolve to the working directory');
+    assert.equal(cfg.llm.baseUrl, null);
+    assert.equal(cfg.llm.chatModel, null);
+    assert.equal(cfg.httpPort, 8080);
+    assert.equal(cfg.publicBaseUrl, 'http://127.0.0.1:8080');
+    assert.deepEqual(cfg.publishing.adapters, []);
+  });
+
+  it('still rejects a required key that is empty', () => {
+    assert.throws(() => loadConfig({ ...base, DATABASE_URL: '' }), /DATABASE_URL/);
   });
 });

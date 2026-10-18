@@ -1,0 +1,27 @@
+### 06-health-check: <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/health-check.ps1 -InstallRoot <scratch>/gi-e2e
+
+check                      status   detail
+-----                      ------   ------
+postgresql                 ok       127.0.0.1:55433 listening
+platform_api               ok       http://127.0.0.1:18080
+platform_ready             ok       {"status":"ok","components":{"database":"ok","migrations":"ok","visual_engine":"disabled","llm":"ok","job_queue":"ok","telegram_polling":"disabled","alerts":"ok","b
+                                    ackup":"degraded","gpu":"degraded"}}
+metrics                    ok       Prometheus metrics served
+component:database         ok       
+component:migrations       ok       {"version":"0008"}
+component:visual_engine    disabled "no engine registered"
+component:llm              ok       {"configured_model":"sim-chat-model","served_models":["sim-chat-model"],"inFlight":0,"queued":0,"total":0,"errors":0,"p95Ms":null}
+component:job_queue        ok       {"dead":0,"backlog":0,"oldest_s":null}
+component:telegram_polling disabled "no bot polling yet"
+component:alerts           ok       {"critical":0,"warning":2}
+component:backup           degraded "no successful backup recorded"
+component:gpu              degraded {"latest":[]}
+comfy_bridge               ok       ComfyUI 0.0.0-simulated
+comfyui                    ok       SIMULATED GPU (no hardware); VRAM free 20480 / 24576 MB
+llm                        ok       sim-chat-model served at http://127.0.0.1:18091/v1
+gpu                        unknown  nvidia-smi not found
+disk                       degraded 28.6 GB free on / (media root)
+
+
+    OK  all critical checks pass
+### exit code: 0

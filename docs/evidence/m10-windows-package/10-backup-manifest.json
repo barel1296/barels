@@ -1,0 +1,27 @@
+{
+  "started_at": "2026-10-18T14:18:05.2640091+00:00",
+  "finished_at": "2026-10-18T14:18:06.3322765+00:00",
+  "status": "succeeded",
+  "location": "<scratch>/gi-e2e/backups/20261018-141805",
+  "error": null,
+  "host": "vm",
+  "database": {
+    "file": "db.dump",
+    "bytes": 572532,
+    "sha256": "ea2e7b1042a7ca663a794338d778844f26e1f2b72c1b5f9235efcdfa4c222433",
+    "toc_entries": 1257,
+    "database": "golden_e2e"
+  },
+  "media": {
+    "mirror": "<scratch>/gi-e2e/backups/media-mirror",
+    "files": 2,
+    "bytes": 427.0
+  },
+  "extras": [
+    {
+      "name": "bridge",
+      "file": "bridge.zip",
+      "sha256": "09825198b5da4e9bc3d90b03309450db1f1dc1383a5ee6515e07467065b2bfc2"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "/v1/me": {
+    "ok": true,
+    "status": 200,
+    "error": null,
+    "body": {
+      "user_id": "01a14f5f-fe20-7c55-a56b-925683386708",
+      "workspace_id": "01a14f5f-fe20-79af-9cad-b9efe7bec9d3",
+      "is_platform_admin": true,
+      "permissions": [
+        "adapter.register",
+        "agent.manage",
+        "agent.run",
+        "analytics.manage",
+        "analytics.read",
+        "audit.read",
+        "autonomy.approve",
+        "autonomy.manage",
+        "binding.manage",
+        "channel.read",
+        "comment.moderate",
+        "comment.read",
+        "comment.reply",
+        "content.approve",
+        "content.create",
+        "content.read",
+        "content.submit",
+        "conversation.manage",
+        "conversation.read",
+        "conversation.reply",
+        "entitlement.grant",
+        "escalation.manage",
+        "fan.manage",
+        "fan.read",
+        "influencer.create",
+        "influencer.read",
+        "influencer.update",
+        "integration.manage",
+        "killswitch.manage",
+        "offer.send",
+        "payment.read",
+        "persona.activate",
+        "persona.approve",
+        "persona.edit",
+        "product.approve",
+        "product.manage",
+        "proposal.approve",
+        "proposal.read",
+        "publication.cancel",
+        "publication.read",
+        "publication.schedule",
+        "qa_threshold.manage",
+        "reference_asset.approve",
+        "reference_asset.upload",
+        "refund.approve",
+        "refund.request",
+        "user.manage",
+        "valuation.manage",
+        "visual_job.cancel",
+        "visual_job.create",
+        "visual_job.read",
+        "workflow.read"
+      ],
+      "influencer_scope": null
+    }
+  },
+  "/v1/platform/engines": {
+    "ok": true,
+    "status": 200,
+    "error": null,
+    "body": {
+      "id": "01a14f60-4073-716a-ab56-4cd0b058bf3b",
+      "engine_key": "ws-comfyui",
+      "base_url": "http://127.0.0.1:8190/vec/v1",
+      "contract_version": "1.0",
+      "reported_engine_id": "ws-comfyui",
+      "reported_engine_version": "1.0.0",
+      "engine_kind": "comfyui",
+      "capabilities": {
+        "progress": false,
+        "callbacks": false,
+        "cancellation": true,
+        "output_transfer": [
+          "http_download"
+        ],
+        "resource_release": true,
+        "max_concurrent_jobs": 1
+      },
+      "advertised_max_concurrent_jobs": 1,
+      "dispatch_limit": null,
+      "media_lane_vram_mb": null,
+      "status": "active",
+      "health": "ready",
+      "last_seen_at": "2026-10-18T14:17:50.441Z",
+      "last_sync_at": "2026-10-18T14:17:50.522Z",
+      "last_error": null,
+      "created_at": "2026-10-18T14:17:50.441Z",
+      "updated_at": "2026-10-18T14:17:50.441Z"
+    }
+  },
+  "/v1/influencers": {
+    "ok": true,
+    "status": 200,
+    "error": null,
+    "body": {
+      "id": "01a14f60-410d-73ee-9c03-13222e0f1468",
+      "workspace_id": "01a14f5f-fe20-79af-9cad-b9efe7bec9d3",
+      "slug": "golden",
+      "display_name": "Golden (simulated)",
+      "status": "active",
+      "ai_disclosure_short": "AI-generated virtual creator",
+      "ai_disclosure_long": "This account is an AI-generated virtual character. Images are AI-generated; messages are automated.",
+      "timezone": "Europe/Lisbon",
+      "primary_language": "en",
+      "active_persona_version_id": "01a14f60-412e-7f4e-b640-c80755158865",
+      "autonomy_paused": false,
+      "created_at": "2026-10-18T14:17:50.578Z",
+      "updated_at": "2026-10-18T14:17:50.75Z"
+    }
+  },
+  "/v1/approvals": {
+    "ok": true,
+    "status": 200,
+    "error": null,
+    "body": null
+  },
+  "/admin/": {
+    "ok": true,
+    "status": 200,
+    "error": null
+  }
+}

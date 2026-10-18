@@ -1,0 +1,9 @@
+### 10-backup: <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/backup.ps1 -InstallRoot <scratch>/gi-e2e -Keep 3
+==> Dumping the database
+    OK  db.dump 0.5 MB, 1257 TOC entries
+==> Mirroring the media store (incremental)
+    OK  media mirror: 2 files, 0.0 MB
+    OK  bridge.zip
+recorded backup (succeeded)
+    OK  backup complete: <scratch>/gi-e2e/backups/20261018-141805
+### exit code: 0

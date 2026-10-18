@@ -1,0 +1,7 @@
+### 03-migrate: <scratch>/pwsh/pwsh -NoProfile -NonInteractive -File deploy/windows/migrate.ps1 -InstallRoot <scratch>/gi-e2e
+==> Applying migrations
+applied: []; already applied: [0001, 0002, 0003, 0004, 0005, 0006, 0007, 0008]
+==> Ensuring partitions for the next 3 months
+all partitions present
+    OK  database schema is current
+### exit code: 0

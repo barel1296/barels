@@ -1,0 +1,67 @@
+{
+  "facts": {
+    "started_at": "2026-10-18T14:17:51.4855209+00:00",
+    "execution": "SIMULATED backends: comfyui, llm (script exercise, NOT hardware acceptance)",
+    "host": "vm",
+    "os": "Unix 6.18.44.139",
+    "powershell": "7.4.6",
+    "node": "v22.22.0",
+    "git_commit": "722a179602a1db558306d5d23b37c82ff3e91e7d",
+    "gpu": null,
+    "comfyui_url": "http://127.0.0.1:42441",
+    "comfyui_version": "0.0.0-simulated",
+    "comfyui_device": "SIMULATED GPU (no hardware)",
+    "llm_model": "sim-chat-model",
+    "simulated_backends": [
+      "comfyui",
+      "llm"
+    ],
+    "finished_at": "2026-10-18T14:18:04.6003569+00:00"
+  },
+  "passed": true,
+  "acceptance_evidence": false,
+  "steps": [
+    {
+      "step": "health",
+      "status": "passed",
+      "detail": "critical services up",
+      "evidence": "<scratch>/gi-e2e/evidence/integration-20261018-141751/health.json"
+    },
+    {
+      "step": "comfyui",
+      "status": "passed",
+      "detail": "existing ComfyUI at http://127.0.0.1:42441 (read-only probe)",
+      "evidence": "<scratch>/gi-e2e/evidence/integration-20261018-141751/comfyui-discovery.json"
+    },
+    {
+      "step": "conformance",
+      "status": "passed",
+      "detail": "bridge is VEC v1 conformant",
+      "evidence": "<scratch>/gi-e2e/evidence/integration-20261018-141751/conformance.log"
+    },
+    {
+      "step": "llm",
+      "status": "passed",
+      "detail": "persona_reply p50 10 ms, p95 35 ms, 314.3 tok/s",
+      "evidence": "<scratch>/gi-e2e/evidence/integration-20261018-141751/llm-bench-20261018-141757.json"
+    },
+    {
+      "step": "api",
+      "status": "passed",
+      "detail": "authenticated as 01a14f5f-fe20-7c55-a56b-925683386708 (platform admin: True)",
+      "evidence": "<scratch>/gi-e2e/evidence/integration-20261018-141751/api-smoke.json"
+    },
+    {
+      "step": "engine",
+      "status": "passed",
+      "detail": "engine ws-comfyui: health ok; sync ok",
+      "evidence": "<scratch>/gi-e2e/evidence/integration-20261018-141751/engine.json"
+    },
+    {
+      "step": "generate",
+      "status": "passed",
+      "detail": "job succeeded in 6 s, platform validation_scope=real_engine; 1 media asset(s); the ComfyUI behind the bridge is SIMULATED",
+      "evidence": "<scratch>/gi-e2e/evidence/integration-20261018-141751/generation.json"
+    }
+  ]
+}

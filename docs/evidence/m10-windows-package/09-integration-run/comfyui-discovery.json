@@ -1,0 +1,64 @@
+{
+  "discovered_at": "2026-10-18T14:17:54.1599581+00:00",
+  "processes": [],
+  "candidates": [
+    {
+      "url": "http://127.0.0.1:42441",
+      "reachable": true,
+      "comfyui_version": "0.0.0-simulated",
+      "python_version": "3.12.0",
+      "pytorch_version": "simulated",
+      "embedded_python": false,
+      "os": "simulated",
+      "devices": [
+        {
+          "name": "SIMULATED GPU (no hardware)",
+          "type": "cuda",
+          "vram_total_mb": 24576.0,
+          "vram_free_mb": 20480.0
+        }
+      ],
+      "node_types": 8
+    },
+    {
+      "url": "http://127.0.0.1:8188",
+      "reachable": false,
+      "error": "Connection refused (127.0.0.1:8188)"
+    },
+    {
+      "url": "http://localhost:8188",
+      "reachable": false,
+      "error": "Connection refused (localhost:8188)"
+    }
+  ],
+  "selected": {
+    "url": "http://127.0.0.1:42441",
+    "reachable": true,
+    "comfyui_version": "0.0.0-simulated",
+    "python_version": "3.12.0",
+    "pytorch_version": "simulated",
+    "embedded_python": false,
+    "os": "simulated",
+    "devices": [
+      {
+        "name": "SIMULATED GPU (no hardware)",
+        "type": "cuda",
+        "vram_total_mb": 24576.0,
+        "vram_free_mb": 20480.0
+      }
+    ],
+    "node_types": 8
+  },
+  "packages": {
+    "packages": [
+      {
+        "workflow": "sim.portrait@1.0.0",
+        "ok": true,
+        "missing_node_types": [],
+        "values_not_available": [],
+        "warnings": []
+      }
+    ],
+    "rejected": []
+  }
+}

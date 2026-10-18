@@ -1,0 +1,110 @@
+{
+  "engine_url": "http://127.0.0.1:8190/vec/v1",
+  "engine": {
+    "engine_id": "ws-comfyui",
+    "engine_version": "1.0.0",
+    "engine_kind": "comfyui"
+  },
+  "started_at": "2026-10-18T14:17:56.096Z",
+  "finished_at": "2026-10-18T14:17:56.521Z",
+  "passed": true,
+  "results": [
+    {
+      "id": "C01",
+      "name": "auth required",
+      "passed": true,
+      "detail": "401 UNAUTHORIZED"
+    },
+    {
+      "id": "C02",
+      "name": "engine info",
+      "passed": true,
+      "detail": "ws-comfyui 1.0.0 (comfyui)"
+    },
+    {
+      "id": "C03",
+      "name": "workflow discovery",
+      "passed": true,
+      "detail": "manifest_sha256 e8b0b14e8d9c… verified"
+    },
+    {
+      "id": "C04",
+      "name": "manifest valid",
+      "passed": true,
+      "detail": "schema-valid; input_schema matches normative example"
+    },
+    {
+      "id": "C05",
+      "name": "unknown workflow",
+      "passed": true,
+      "detail": "404 WORKFLOW_NOT_FOUND"
+    },
+    {
+      "id": "C06",
+      "name": "submit and succeed",
+      "passed": true,
+      "detail": "2 outputs downloaded and verified"
+    },
+    {
+      "id": "C07",
+      "name": "idempotent replay",
+      "passed": true,
+      "detail": "replay → same job cb_mvdwu4ns_feuv7m"
+    },
+    {
+      "id": "C08",
+      "name": "idempotency conflict",
+      "passed": true,
+      "detail": "409 IDEMPOTENCY_CONFLICT"
+    },
+    {
+      "id": "C09",
+      "name": "new attempt",
+      "passed": true,
+      "detail": "new job cb_mvdwu4on_fsn9en"
+    },
+    {
+      "id": "C10",
+      "name": "parameter validation",
+      "passed": true,
+      "detail": "422 PARAMETER_VALIDATION_FAILED"
+    },
+    {
+      "id": "C11",
+      "name": "unsupported contract version",
+      "passed": true,
+      "detail": "400 UNSUPPORTED_CONTRACT_VERSION"
+    },
+    {
+      "id": "C12",
+      "name": "cancellation",
+      "passed": true,
+      "detail": "cancelled while running"
+    },
+    {
+      "id": "C13",
+      "name": "cancel terminal job",
+      "passed": true,
+      "detail": "terminal job unchanged"
+    },
+    {
+      "id": "C14",
+      "name": "unknown job",
+      "passed": true,
+      "detail": "404 JOB_NOT_FOUND"
+    },
+    {
+      "id": "C15",
+      "name": "resources",
+      "passed": true,
+      "detail": "status ready"
+    },
+    {
+      "id": "C16",
+      "name": "status schema",
+      "passed": true,
+      "detail": "12 status payloads valid"
+    }
+  ],
+  "note": "Conformance is necessary but not sufficient for production; real workflows still need end-to-end validation on the workstation."
+}

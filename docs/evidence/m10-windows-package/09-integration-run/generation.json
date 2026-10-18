@@ -1,0 +1,269 @@
+{
+  "request": {
+    "parameters": {
+      "scene": "golden hour rooftop",
+      "seed": 21
+    },
+    "purpose": "feed_photo",
+    "output_count": 1,
+    "idempotency_key": "integration-20261018-141751"
+  },
+  "job": {
+    "id": "01a14f60-5ff0-75a1-9922-0fb88e38df0e",
+    "workspace_id": "01a14f5f-fe20-79af-9cad-b9efe7bec9d3",
+    "influencer_id": "01a14f60-410d-73ee-9c03-13222e0f1468",
+    "persona_version_id": "01a14f60-412e-7f4e-b640-c80755158865",
+    "content_item_id": null,
+    "binding_id": "01a14f60-41af-7a9a-9704-3279c8921491",
+    "workflow_id": "01a14f60-40b6-757d-baea-95767615a5ea",
+    "workflow_key": "sim.portrait",
+    "workflow_version": "1.0.0",
+    "engine_id": "01a14f60-4073-716a-ab56-4cd0b058bf3b",
+    "engine_kind": "comfyui",
+    "request_id": "01a14f60-5ff0-7c25-9cbe-b0ec5faf55f6",
+    "attempt": 1,
+    "max_attempts": 3,
+    "priority_class": "scheduled_image",
+    "priority": 3,
+    "parameters": {
+      "seed": 21,
+      "scene": "golden hour rooftop",
+      "aspect_ratio": "4:5"
+    },
+    "references": [],
+    "persona_reference_ids": [
+      "01a14f60-4183-7475-8ef6-f44a8239b732"
+    ],
+    "adapter_ids": [],
+    "output_count": 1,
+    "timeout_s": 120,
+    "deadline_at": null,
+    "state": "succeeded",
+    "not_before": "2026-10-18T14:17:58.498Z",
+    "engine_job_id": "cb_mvdwu74b_59gqj1",
+    "engine_state": "succeeded",
+    "progress": {
+      "stage": "done",
+      "message": null,
+      "fraction": 1
+    },
+    "submission_sha256": "4f1d7da86f3843579ab90103f7b4bd4df58819ecb9b4f540a1fe1c8749b979ba",
+    "dispatched_at": "2026-10-18T14:17:59.405Z",
+    "started_at": "2026-10-18T14:17:59.953Z",
+    "finished_at": "2026-10-18T14:18:03.345Z",
+    "last_polled_at": "2026-10-18T14:17:59.468Z",
+    "error": null,
+    "error_code": null,
+    "error_class": null,
+    "resource_usage": {
+      "gpu_seconds": 0.031,
+      "vram_peak_mb": null,
+      "wall_seconds": 0.006
+    },
+    "gpu_seconds": 0.031,
+    "wall_seconds": 0.006,
+    "output_asset_ids": [
+      "01a14f60-72cc-7419-8838-9884bf4a9630"
+    ],
+    "requested_by_type": "user",
+    "requested_by_id": "01a14f5f-fe20-7c55-a56b-925683386708",
+    "agent_run_id": null,
+    "idempotency_key": "integration-20261018-141751",
+    "request_hash": "4e1645bd1801d83eb41d5c5ea24c70ac75c6bc950e2a1a455a422c34aa7a1e74",
+    "trace_id": null,
+    "created_at": "2026-10-18T14:17:58.498Z",
+    "updated_at": "2026-10-18T14:18:03.339Z",
+    "validation_scope": "real_engine",
+    "events": [
+      {
+        "id": 1,
+        "occurred_at": "2026-10-18T14:17:58.518Z",
+        "event_type": "created",
+        "from_state": null,
+        "to_state": "queued",
+        "attempt": 1,
+        "engine_job_id": null,
+        "actor_type": "user",
+        "actor_id": "01a14f5f-fe20-7c55-a56b-925683386708",
+        "details": {
+          "workflow": "sim.portrait@1.0.0",
+          "timeout_s": 120,
+          "binding_id": "01a14f60-41af-7a9a-9704-3279c8921491",
+          "adapter_ids": [],
+          "priority_class": "scheduled_image",
+          "manifest_sha256": "3d2cfedeca4b9395d5debf8cc064e70efafca5ba286f4fdb433db2add9797ef5",
+          "persona_version_id": "01a14f60-412e-7f4e-b640-c80755158865",
+          "reference_asset_ids": [],
+          "persona_reference_ids": [
+            "01a14f60-4183-7475-8ef6-f44a8239b732"
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "occurred_at": "2026-10-18T14:17:59.408Z",
+        "event_type": "dispatching",
+        "from_state": "queued",
+        "to_state": "dispatching",
+        "attempt": 1,
+        "engine_job_id": null,
+        "actor_type": "system",
+        "actor_id": "visual-worker",
+        "details": {
+          "engine_id": "01a14f60-4073-716a-ab56-4cd0b058bf3b",
+          "engine_key": "ws-comfyui",
+          "free_slots": 1,
+          "over_quota": false,
+          "engine_kind": "comfyui",
+          "base_priority": 3,
+          "effective_priority": 3,
+          "quota_gpu_seconds_day": 1800,
+          "used_gpu_seconds_today": 0
+        }
+      },
+      {
+        "id": 3,
+        "occurred_at": "2026-10-18T14:17:59.471Z",
+        "event_type": "submitted",
+        "from_state": "dispatching",
+        "to_state": "submitted",
+        "attempt": 1,
+        "engine_job_id": "cb_mvdwu74b_59gqj1",
+        "actor_type": "engine",
+        "actor_id": "ws-comfyui",
+        "details": {
+          "replayed": false,
+          "engine_state": "queued",
+          "engine_job_id": "cb_mvdwu74b_59gqj1",
+          "submission_sha256": "4f1d7da86f3843579ab90103f7b4bd4df58819ecb9b4f540a1fe1c8749b979ba"
+        }
+      },
+      {
+        "id": 4,
+        "occurred_at": "2026-10-18T14:18:03.33Z",
+        "event_type": "engine_succeeded",
+        "from_state": "submitted",
+        "to_state": "ingesting",
+        "attempt": 1,
+        "engine_job_id": "cb_mvdwu74b_59gqj1",
+        "actor_type": "engine",
+        "actor_id": "ws-comfyui",
+        "details": {
+          "outputs": 1,
+          "resource_usage": {
+            "gpu_seconds": 0.031,
+            "vram_peak_mb": null,
+            "wall_seconds": 0.006
+          }
+        }
+      },
+      {
+        "id": 5,
+        "occurred_at": "2026-10-18T14:18:03.336Z",
+        "event_type": "output_verified",
+        "from_state": null,
+        "to_state": null,
+        "attempt": 1,
+        "engine_job_id": "cb_mvdwu74b_59gqj1",
+        "actor_type": "system",
+        "actor_id": "visual-worker",
+        "details": {
+          "bytes": 328,
+          "width": 112,
+          "height": 140,
+          "sha256": "d998f9fc701d076e0273d22803f53897543c696665349773e536afe5070a9ac6",
+          "mime_type": "image/png",
+          "output_id": "o1"
+        }
+      },
+      {
+        "id": 6,
+        "occurred_at": "2026-10-18T14:18:03.347Z",
+        "event_type": "succeeded",
+        "from_state": "ingesting",
+        "to_state": "succeeded",
+        "attempt": 1,
+        "engine_job_id": "cb_mvdwu74b_59gqj1",
+        "actor_type": "system",
+        "actor_id": "visual-worker",
+        "details": {
+          "asset_ids": [
+            "01a14f60-72cc-7419-8838-9884bf4a9630"
+          ],
+          "engine_kind": "comfyui",
+          "qa_rejected": 0
+        }
+      }
+    ]
+  },
+  "media_assets": {
+    "id": "01a14f60-72cc-7419-8838-9884bf4a9630",
+    "kind": "image",
+    "mime_type": "image/png",
+    "bytes": 328,
+    "width": 112,
+    "height": 140,
+    "sha256": "d998f9fc701d076e0273d22803f53897543c696665349773e536afe5070a9ac6",
+    "origin": "generated",
+    "status": "valid",
+    "status_reason": null,
+    "visual_job_id": "01a14f60-5ff0-75a1-9922-0fb88e38df0e",
+    "engine_kind": "comfyui",
+    "qa_summary": {
+      "flagged": false,
+      "reasons": [],
+      "decision": "valid",
+      "outcomes": [],
+      "engine_qa": [],
+      "validation_scope": "real_engine"
+    },
+    "provenance": {
+      "engine": {
+        "reported": {
+          "engine_id": "ws-comfyui",
+          "engine_version": "1.0.0"
+        },
+        "engine_id": "01a14f60-4073-716a-ab56-4cd0b058bf3b",
+        "engine_key": "ws-comfyui",
+        "engine_kind": "comfyui"
+      },
+      "attempt": 1,
+      "contract": {
+        "c2pa": {
+          "signed": false,
+          "manifest_ref": null
+        },
+        "seed": 21,
+        "models": [],
+        "engine_id": "ws-comfyui",
+        "workflow_key": "sim.portrait",
+        "engine_version": "1.0.0",
+        "engine_metadata": {
+          "output_node": "9",
+          "comfyui_version": "0.0.0-simulated",
+          "comfyui_prompt_id": "46239d4e-6749-4327-a947-2e7f01e008ec"
+        },
+        "workflow_version": "1.0.0"
+      },
+      "workflow": {
+        "key": "sim.portrait",
+        "version": "1.0.0",
+        "manifest_sha256": "3d2cfedeca4b9395d5debf8cc064e70efafca5ba286f4fdb433db2add9797ef5"
+      },
+      "request_id": "01a14f60-5ff0-7c25-9cbe-b0ec5faf55f6",
+      "adapter_ids": [],
+      "contract_mock": false,
+      "engine_job_id": "cb_mvdwu74b_59gqj1",
+      "visual_job_id": "01a14f60-5ff0-75a1-9922-0fb88e38df0e",
+      "output_metadata": {},
+      "persona_version_id": "01a14f60-412e-7f4e-b640-c80755158865",
+      "reference_asset_ids": [],
+      "persona_reference_ids": [
+        "01a14f60-4183-7475-8ef6-f44a8239b732"
+      ],
+      "iptc_digital_source_type": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"
+    },
+    "created_at": "2026-10-18T14:18:03.339Z"
+  },
+  "elapsed_s": 6.1
+}
