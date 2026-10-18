@@ -3,9 +3,12 @@ import { withTenant, type Db } from '../db/tx.js';
 import { verifyAssetSignature } from '../lib/crypto.js';
 import { AppError, notFound, unauthorized } from '../lib/errors.js';
 import { uuidv7 } from '../lib/ids.js';
-import { authenticate, ctxFromPrincipal } from '../modules/auth.js';
+import { type Principal, authenticate, ctxFromPrincipal } from '../modules/auth.js';
+import { SESSION_COOKIE, authenticateSession, parseCookies } from '../modules/sessions.js';
 import type { Ctx } from '../modules/context.js';
 import type { Services } from '../services.js';
+import { registerAuthRoutes } from './auth-routes.js';
+import { registerOpsRoutes } from './ops-routes.js';
 import { registerRoutes } from './routes.js';
 
 declare module 'fastify' {
@@ -44,8 +47,15 @@ export function buildApi(svc: Services, opts: { logger?: boolean } = {}): Fastif
   app.addHook('onRequest', async (req) => {
     if (req.routeOptions.config?.public) return;
     const header = req.headers.authorization;
-    if (!header?.startsWith('Bearer ')) throw unauthorized();
-    const principal = await authenticate(svc.appPool, header.slice(7).trim());
+    let principal: Principal;
+    if (header?.startsWith('Bearer ')) {
+      principal = await authenticate(svc.appPool, header.slice(7).trim());
+    } else {
+      const session = parseCookies(req.headers.cookie)[SESSION_COOKIE];
+      if (!session) throw unauthorized();
+      const csrf = req.headers['x-csrf-token'];
+      principal = await authenticateSession(svc.appPool, svc.config.auth, session, req.method, typeof csrf === 'string' ? csrf : undefined);
+    }
     req.ctx = ctxFromPrincipal(principal, {
       requestId: String(req.id),
       traceId: typeof req.headers['x-trace-id'] === 'string' ? req.headers['x-trace-id'] : null,
@@ -106,5 +116,7 @@ export function buildApi(svc: Services, opts: { logger?: boolean } = {}): Fastif
   );
 
   registerRoutes(app, svc, { app, tenant });
+  registerAuthRoutes(app, svc, { app, tenant });
+  registerOpsRoutes(app, svc, { app, tenant });
   return app;
 }

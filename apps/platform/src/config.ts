@@ -28,6 +28,72 @@ export interface WorkerConfig {
   timeoutGraceSeconds: number;
 }
 
+export interface AuthConfig {
+  sessionTtlHours: number;
+  sessionIdleMinutes: number;
+  /** Secure cookie flag. Disable only for plain-http local testing. */
+  cookieSecure: boolean;
+  maxFailedLogins: number;
+  lockoutMinutes: number;
+  totpIssuer: string;
+}
+
+export interface MonitoringConfig {
+  /** Bearer token for GET /metrics; null = metrics endpoint disabled. */
+  metricsToken: string | null;
+  nodeName: string;
+  gpuMonitorEnabled: boolean;
+  /** Command printing nvidia-smi CSV (see modules/monitoring.ts). Configurable, never a hardcoded path. */
+  gpuMonitorCommand: string;
+  gpuSampleIntervalMs: number;
+  gpuAlertTempC: number;
+  gpuAlertVramPct: number;
+  /** Directory receiving write-once audit seal exports; null = no export. */
+  auditExportDir: string | null;
+  /** A backup older than this raises an alert. */
+  backupMaxAgeHours: number;
+}
+
+/** Local LLM served through an OpenAI-compatible HTTP API (llama.cpp server, vLLM, Ollama, LM Studio). */
+export interface LlmConfig {
+  baseUrl: string | null; // …/v1 ; null = LLM features disabled (replies queue for humans)
+  apiKey: string | null;
+  /** Model identifier as the local server names it. Configuration only; nothing is hardcoded. */
+  chatModel: string | null;
+  /** Optional separate guard/classifier model; null = rule-based guard only. */
+  guardModel: string | null;
+  timeoutMs: number;
+  /** P1 chat lane: maximum concurrent requests to the local server. */
+  maxConcurrency: number;
+  maxReplyTokens: number;
+  temperature: number;
+  contextMessages: number;
+}
+
+export interface TelegramConfig {
+  apiBaseUrl: string;
+  pollTimeoutSeconds: number;
+  pollIntervalMs: number;
+  /** Telegram user ids of staff/test accounts that the membership audit never removes. */
+  allowlistedUserIds: string[];
+}
+
+export interface InstagramConfig {
+  graphBaseUrl: string;
+  graphVersion: string;
+  /** Public HTTPS base (e.g. a Cloudflare Tunnel hostname) Instagram uses to fetch media; null = IG publishing disabled. */
+  publicMediaBaseUrl: string | null;
+  containerPollIntervalMs: number;
+  containerTimeoutSeconds: number;
+}
+
+export interface PaymentsConfig {
+  /** HMAC key for invoice payloads (>= 32 bytes). */
+  invoiceSecret: Buffer;
+  subscriptionGraceHours: number;
+  subscriptionPeriodSeconds: number;
+}
+
 export interface Config {
   databaseUrl: string;
   workerDatabaseUrl: string;
@@ -52,6 +118,14 @@ export interface Config {
    */
   defaultGpuQuotaSecondsPerDay: number;
   worker: WorkerConfig;
+  auth: AuthConfig;
+  monitoring: MonitoringConfig;
+  llm: LlmConfig;
+  telegram: TelegramConfig;
+  instagram: InstagramConfig;
+  payments: PaymentsConfig;
+  /** Job runner concurrency (non-GPU background work). */
+  jobConcurrency: number;
 }
 
 type Env = Record<string, string | undefined>;
@@ -60,6 +134,27 @@ function required(env: Env, name: string): string {
   const v = env[name];
   if (!v) throw new Error(`Missing required environment variable ${name}`);
   return v;
+}
+
+function bool(env: Env, name: string, fallback: boolean): boolean {
+  const raw = env[name];
+  if (raw === undefined || raw === '') return fallback;
+  if (/^(1|true|yes|on)$/i.test(raw)) return true;
+  if (/^(0|false|no|off)$/i.test(raw)) return false;
+  throw new Error(`${name} must be true or false`);
+}
+
+function num(env: Env, name: string, fallback: number): number {
+  const raw = env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) throw new Error(`${name} must be a number`);
+  return n;
+}
+
+function opt(env: Env, name: string): string | null {
+  const v = env[name];
+  return v === undefined || v === '' ? null : v;
 }
 
 function int(env: Env, name: string, fallback: number, min = 0): number {
@@ -112,6 +207,57 @@ export function loadConfig(env: Env = process.env): Config {
       jobTimeoutCapSeconds: int(env, 'JOB_TIMEOUT_CAP_S', 3600, 1),
       timeoutGraceSeconds: int(env, 'TIMEOUT_GRACE_S', 120, 0),
     },
+    auth: {
+      sessionTtlHours: int(env, 'SESSION_TTL_H', 12, 1),
+      sessionIdleMinutes: int(env, 'SESSION_IDLE_MIN', 120, 5),
+      cookieSecure: bool(env, 'SESSION_COOKIE_SECURE', true),
+      maxFailedLogins: int(env, 'LOGIN_MAX_FAILURES', 5, 1),
+      lockoutMinutes: int(env, 'LOGIN_LOCKOUT_MIN', 15, 1),
+      totpIssuer: env.TOTP_ISSUER ?? 'Golden Influencer',
+    },
+    monitoring: {
+      metricsToken: opt(env, 'METRICS_TOKEN'),
+      nodeName: env.NODE_NAME ?? hostname(),
+      gpuMonitorEnabled: bool(env, 'GPU_MONITOR_ENABLED', false),
+      gpuMonitorCommand:
+        env.GPU_MONITOR_COMMAND ??
+        'nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw --format=csv,noheader,nounits',
+      gpuSampleIntervalMs: int(env, 'GPU_SAMPLE_INTERVAL_MS', 15_000, 1000),
+      gpuAlertTempC: num(env, 'GPU_ALERT_TEMP_C', 87),
+      gpuAlertVramPct: num(env, 'GPU_ALERT_VRAM_PCT', 97),
+      auditExportDir: opt(env, 'AUDIT_EXPORT_DIR'),
+      backupMaxAgeHours: int(env, 'BACKUP_MAX_AGE_H', 30, 1),
+    },
+    llm: {
+      baseUrl: opt(env, 'LLM_BASE_URL')?.replace(/\/+$/, '') ?? null,
+      apiKey: opt(env, 'LLM_API_KEY'),
+      chatModel: opt(env, 'LLM_CHAT_MODEL'),
+      guardModel: opt(env, 'LLM_GUARD_MODEL'),
+      timeoutMs: int(env, 'LLM_TIMEOUT_MS', 60_000, 100),
+      maxConcurrency: int(env, 'LLM_MAX_CONCURRENCY', 2, 1),
+      maxReplyTokens: int(env, 'LLM_MAX_REPLY_TOKENS', 300, 16),
+      temperature: num(env, 'LLM_TEMPERATURE', 0.7),
+      contextMessages: int(env, 'LLM_CONTEXT_MESSAGES', 20, 2),
+    },
+    telegram: {
+      apiBaseUrl: (env.TELEGRAM_API_BASE_URL ?? 'https://api.telegram.org').replace(/\/+$/, ''),
+      pollTimeoutSeconds: int(env, 'TELEGRAM_POLL_TIMEOUT_S', 25, 0),
+      pollIntervalMs: int(env, 'TELEGRAM_POLL_INTERVAL_MS', 1000, 10),
+      allowlistedUserIds: (env.TELEGRAM_ALLOWLIST_USER_IDS ?? '').split(',').map((x) => x.trim()).filter(Boolean),
+    },
+    instagram: {
+      graphBaseUrl: (env.INSTAGRAM_GRAPH_BASE_URL ?? 'https://graph.instagram.com').replace(/\/+$/, ''),
+      graphVersion: env.INSTAGRAM_GRAPH_VERSION ?? 'v23.0',
+      publicMediaBaseUrl: opt(env, 'PUBLIC_MEDIA_BASE_URL')?.replace(/\/+$/, '') ?? null,
+      containerPollIntervalMs: int(env, 'INSTAGRAM_CONTAINER_POLL_MS', 5000, 10),
+      containerTimeoutSeconds: int(env, 'INSTAGRAM_CONTAINER_TIMEOUT_S', 300, 1),
+    },
+    payments: {
+      invoiceSecret: Buffer.from(env.INVOICE_SECRET ?? env.ASSET_URL_SECRET ?? '', 'base64'),
+      subscriptionGraceHours: int(env, 'SUBSCRIPTION_GRACE_H', 48, 0),
+      subscriptionPeriodSeconds: int(env, 'SUBSCRIPTION_PERIOD_S', 2_592_000, 60),
+    },
+    jobConcurrency: int(env, 'JOB_CONCURRENCY', 4, 1),
   };
 }
 

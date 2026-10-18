@@ -9,6 +9,11 @@ import { audit } from './modules/audit.js';
 import { issueApiToken } from './modules/auth.js';
 import { closeServices, createServices } from './services.js';
 import { runWorkerOnce } from './worker.js';
+import { readFile } from 'node:fs/promises';
+import { sealAuditLog, verifyAuditChain } from './modules/audit-seal.js';
+import { ensurePartitions } from './modules/maintenance.js';
+import { healthReport } from './modules/monitoring.js';
+import { enrollTotp, issueSetupToken, setPassword } from './modules/sessions.js';
 
 type Flags = Record<string, string | true>;
 
@@ -131,6 +136,109 @@ const commands: Record<string, { help: string; run: (f: Flags) => Promise<void> 
           return { user_id: user, token: token.token };
         });
         console.log(JSON.stringify(out, null, 2));
+      } finally {
+        await closeServices(svc);
+      }
+    },
+  },
+  'db:maintain': {
+    help: 'Create upcoming monthly partitions (MIGRATION_DATABASE_URL, as aios_migrator) [--months 3]',
+    run: async (f) => {
+      const months = typeof f.months === 'string' ? Number(f.months) : 3;
+      const created = await ensurePartitions(env('MIGRATION_DATABASE_URL'), months);
+      console.log(created.length ? `created: ${created.join(', ')}` : 'all partitions present');
+    },
+  },
+  'user:set-password': {
+    help: 'Set a user password from env GI_NEW_PASSWORD (never pass passwords as arguments): --email',
+    run: async (f) => {
+      const svc = createServices(loadConfig());
+      try {
+        const u = await svc.workerPool.query<{ id: string }>('SELECT id FROM core.users WHERE email = $1', [need(f, 'email')]);
+        if (!u.rows[0]) throw new Error('user not found');
+        await setPassword(svc.workerPool, u.rows[0].id, env('GI_NEW_PASSWORD'));
+        console.log('password set; existing sessions revoked');
+      } finally {
+        await closeServices(svc);
+      }
+    },
+  },
+  'user:enroll-totp': {
+    help: 'Generate a new TOTP secret for a user and print the otpauth URI once: --email',
+    run: async (f) => {
+      const svc = createServices(loadConfig());
+      try {
+        const u = await svc.workerPool.query<{ id: string; email: string }>('SELECT id, email FROM core.users WHERE email = $1', [need(f, 'email')]);
+        if (!u.rows[0]) throw new Error('user not found');
+        const r = await enrollTotp(svc.workerPool, svc.config, u.rows[0].id, u.rows[0].email);
+        console.log(`otpauth URI (add to an authenticator app, then discard):\n${r.uri}\nsecret: ${r.secret}`);
+      } finally {
+        await closeServices(svc);
+      }
+    },
+  },
+  'user:setup-token': {
+    help: 'Issue a single-use 24 h account setup token (password + TOTP enrolment via /v1/auth/setup): --email',
+    run: async (f) => {
+      const svc = createServices(loadConfig());
+      try {
+        const u = await svc.workerPool.query<{ id: string }>('SELECT id FROM core.users WHERE email = $1', [need(f, 'email')]);
+        if (!u.rows[0]) throw new Error('user not found');
+        console.log(await issueSetupToken(svc.workerPool, u.rows[0].id));
+      } finally {
+        await closeServices(svc);
+      }
+    },
+  },
+  'audit:seal': {
+    help: 'Seal new audit rows into the hash chain now',
+    run: async () => {
+      const svc = createServices(loadConfig());
+      try {
+        console.log(JSON.stringify(await sealAuditLog(svc.workerPool, svc.config.monitoring.auditExportDir)));
+      } finally {
+        await closeServices(svc);
+      }
+    },
+  },
+  'audit:verify': {
+    help: 'Recompute the audit seal chain and report tampering (exit 1 on problems)',
+    run: async () => {
+      const svc = createServices(loadConfig());
+      try {
+        const r = await verifyAuditChain(svc.workerPool);
+        console.log(JSON.stringify(r, null, 2));
+        if (!r.ok) process.exitCode = 1;
+      } finally {
+        await closeServices(svc);
+      }
+    },
+  },
+  'backup:record': {
+    help: 'Record a backup/restore run from a manifest JSON written by the backup scripts: --manifest <file> [--kind backup|restore_test|restore]',
+    run: async (f) => {
+      const manifest = JSON.parse(await readFile(need(f, 'manifest'), 'utf8')) as { started_at: string; finished_at?: string; status: string; location?: string; error?: string };
+      const kind = typeof f.kind === 'string' ? f.kind : 'backup';
+      const svc = createServices(loadConfig());
+      try {
+        await svc.workerPool.query(
+          `INSERT INTO ops.backup_runs (kind, started_at, finished_at, status, manifest, location, error, recorded_by) VALUES ($1, $2, $3, $4, $5, $6, $7, 'cli')`,
+          [kind, manifest.started_at, manifest.finished_at ?? null, manifest.status, JSON.stringify(manifest), manifest.location ?? null, manifest.error ?? null],
+        );
+        console.log(`recorded ${kind} (${manifest.status})`);
+      } finally {
+        await closeServices(svc);
+      }
+    },
+  },
+  health: {
+    help: 'Print the detailed component health report (exit 1 if down)',
+    run: async () => {
+      const svc = createServices(loadConfig());
+      try {
+        const r = await healthReport(svc);
+        console.log(JSON.stringify(r, null, 2));
+        if (r.status === 'down') process.exitCode = 1;
       } finally {
         await closeServices(svc);
       }

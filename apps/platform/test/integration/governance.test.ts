@@ -3,7 +3,7 @@
  * production role model (aios_app NOBYPASSRLS, aios_worker, aios_migrator).
  */
 import assert from 'node:assert/strict';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
@@ -349,7 +349,8 @@ describe('governance and security invariants', () => {
     it('are idempotent and refuse to run when an applied migration was modified', async () => {
       const again = await migrate(stack.db.migratorUrl, resolve(paths.repoRoot, 'db/migrations'));
       assert.deepEqual(again.applied, []);
-      assert.deepEqual(again.alreadyApplied, ['0001', '0002']);
+      const expected = readdirSync(resolve(paths.repoRoot, 'db/migrations')).filter((f) => /^\d{4}_/.test(f)).map((f) => f.slice(0, 4)).sort();
+      assert.deepEqual(again.alreadyApplied, expected);
       const dir = mkdtempSync(join(tmpdir(), 'gi-mig-'));
       try {
         cpSync(resolve(paths.repoRoot, 'db/migrations'), dir, { recursive: true });

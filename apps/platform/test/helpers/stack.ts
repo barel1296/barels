@@ -10,6 +10,7 @@ import { withTx } from '../../src/db/tx.js';
 import { uuidv7 } from '../../src/lib/ids.js';
 import { issueApiToken } from '../../src/modules/auth.js';
 import { type MockEngine, startMockEngine } from '../../src/mock-engine/engine.js';
+import { type LlmSimulator, startLlmSimulator } from '../../src/simulators/llm.js';
 import { type Services, closeServices, createServices } from '../../src/services.js';
 import { engineHealthTick, runWorkerOnce } from '../../src/worker.js';
 import { createTestDatabase, type TestDatabase } from './db.js';
@@ -46,6 +47,8 @@ export interface Stack {
   apiUrl: string;
   engine: MockEngine;
   engineToken: string;
+  /** SIMULATED LLM (only with opts.llm). */
+  llm: LlmSimulator | null;
   mediaRoot: string;
   ws: Users;
   client(token: string): Client;
@@ -80,11 +83,22 @@ export function makeClient(baseUrl: string, token: string): Client {
   };
 }
 
-export async function startStack(opts: { maxConcurrentJobs?: number } = {}): Promise<Stack> {
+export interface StackOptions {
+  maxConcurrentJobs?: number;
+  /** Start the SIMULATED LLM server and point LLM_BASE_URL at it. */
+  llm?: boolean;
+  /** Extra environment overrides for loadConfig. */
+  env?: Record<string, string>;
+}
+
+export async function startStack(opts: StackOptions = {}): Promise<Stack> {
   const db = await createTestDatabase();
   const mediaRoot = await mkdtemp(join(tmpdir(), 'gi-media-'));
   const engineToken = randomBytes(32).toString('base64url');
+  const llmSim = opts.llm ? await startLlmSimulator() : null;
   const config = loadConfig({
+    ...(llmSim ? { LLM_BASE_URL: llmSim.baseUrl, LLM_CHAT_MODEL: 'simulated-chat-model', LLM_TIMEOUT_MS: '5000' } : {}),
+    SESSION_COOKIE_SECURE: 'false',
     DATABASE_URL: db.appUrl,
     WORKER_DATABASE_URL: db.workerUrl,
     MASTER_KEY: randomBytes(32).toString('base64'),
@@ -99,11 +113,13 @@ export async function startStack(opts: { maxConcurrentJobs?: number } = {}): Pro
     LEASE_S: '30',
     TIMEOUT_GRACE_S: '0',
     WORKER_ID: 'test-worker',
+    ...(opts.env ?? {}),
   });
   const svc = createServices(config);
   const engine = await startMockEngine({ token: engineToken, contractDir: config.contractDir, maxConcurrentJobs: opts.maxConcurrentJobs ?? 1, defaultDelayMs: 20 });
   const api = buildApi(svc);
   const cleanup = async () => {
+    await llmSim?.close().catch(() => undefined);
     await api.close().catch(() => undefined);
     await engine.close().catch(() => undefined);
     await closeServices(svc);
@@ -165,6 +181,7 @@ export async function startStack(opts: { maxConcurrentJobs?: number } = {}): Pro
     apiUrl: address,
     engine,
     engineToken,
+    llm: llmSim,
     mediaRoot,
     ws,
     client: (token) => makeClient(address, token),

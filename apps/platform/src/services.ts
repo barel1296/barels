@@ -3,6 +3,7 @@ import type { Config } from './config.js';
 import { ContractValidator } from './contract/validator.js';
 import { createPool } from './db/pool.js';
 import { ContentStore } from './modules/content-store.js';
+import { LlmGateway } from './modules/llm/gateway.js';
 import { EngineClients } from './modules/visual/engines.js';
 import { PublishingAdapters } from './modules/publishing.js';
 
@@ -17,9 +18,11 @@ export interface Services {
   store: ContentStore;
   engineClients: EngineClients;
   publishingAdapters: PublishingAdapters;
+  /** The one shared local LLM (all influencers). */
+  llm: LlmGateway;
 }
 
-export function createServices(config: Config, overrides: Partial<Pick<Services, 'publishingAdapters'>> = {}): Services {
+export function createServices(config: Config, overrides: Partial<Pick<Services, 'publishingAdapters' | 'llm'>> = {}): Services {
   const validator = new ContractValidator(config.contractDir);
   const services: Services = {
     config,
@@ -29,6 +32,7 @@ export function createServices(config: Config, overrides: Partial<Pick<Services,
     store: new ContentStore(config.mediaRoot),
     engineClients: new EngineClients(config, validator),
     publishingAdapters: overrides.publishingAdapters ?? new PublishingAdapters(),
+    llm: overrides.llm ?? new LlmGateway(config.llm),
   };
   return services;
 }
