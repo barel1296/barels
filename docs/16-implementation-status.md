@@ -61,7 +61,7 @@
 | Administration dashboard | Done | Including setup and cloning (M11) |
 | Authentication and permissions | Done | Local accounts with TOTP; 9 roles; RLS; four-eyes rules in the app and in the database |
 | Auditing and monitoring | Done | Hash-chained audit; alerts; metrics; **no push notification of critical alerts yet** (O2) |
-| Backup and recovery | Done (scripts) | Verified on Linux pwsh; Windows code paths not executed (B1) |
+| Backup and recovery | Done (scripts) | Backup, test restore and Replace verified on Linux pwsh and on a real Windows runner in CI; not yet on the workstation (B1) |
 | Golden template → 20–30 influencers | Done (mechanism) | Clone copies configuration only. Never copied: persona, reference assets, adapters, credentials, bot tokens, channels, fans, conversations, memories, payments, content. Capacity for 20–30 needs measurements (B1, docs/13) |
 
 ### Windows deployment package
@@ -92,7 +92,8 @@
 | Telegram (bots, Stars, refunds, channels) | SIMULATED Bot API: **passed** | Real bots, real Stars |
 | Instagram | SIMULATED Graph API: **passed** | Real accounts after Meta app review |
 | Dashboard | Real Chromium against the real API: **passed** | — |
-| Windows scripts | PowerShell 7.4 on Linux, fresh PostgreSQL cluster, simulators: **passed** (`docs/evidence/m10-windows-package`) | Windows PowerShell 5.1, Task Scheduler, the workstation |
+| Windows scripts | PowerShell 7.4 on Linux (`docs/evidence/m10-windows-package`): **passed**. **Real Windows** (GitHub `windows-latest`, Windows PowerShell 5.1, Task Scheduler, PostgreSQL 16 service, simulators; CI job `windows-deploy`): **passed** | The workstation (GPU, real ComfyUI, model) |
+| Automated suite on Windows | Same CI job, full suite on Windows: **passed** | — |
 | GPU behaviour | Parsing and alert logic only | Everything (no GPU here) |
 
 **Rules, enforced in code:**
@@ -105,7 +106,7 @@
 
 | ID | Item | Status | What unblocks it |
 |---|---|---|---|
-| **B1** | **Workstation not verified.** No script has run on Windows; hardware figures in docs 13–15 are unmeasured | Blocked: needs the workstation (intentionally not accessed in this phase) | `ACCEPTANCE-TESTS.md` W0–W2, W12 |
+| **B1** | **Workstation not verified.** The scripts and the test suite pass on a GitHub Windows runner, but not yet on the workstation; hardware figures in docs 13–15 are unmeasured | Blocked: needs the workstation (intentionally not accessed in this phase) | `ACCEPTANCE-TESTS.md` W0–W2, W12 |
 | **B2** | **No real visual engine run.** Bridge tested only against the simulator; six behaviours to confirm (COMFYUI.md §6) | Blocked: workstation + Track A packages | W3, W5, W6 |
 | **B3** | **No local language model selected or measured** | Blocked: workstation | LOCAL-LLM.md; W4 (docs/14 B-LLM-1…6) |
 | **B4** | **Telegram bots, Stars payments and refunds untested for real** | Needs bot tokens from @BotFather and allowlisted testers | W8, W9 |
@@ -134,7 +135,9 @@
 
 ## 7. Evidence
 
-- `docs/evidence/platform-tests-2026-10-18/`: full automated run, 216/216 passed.
+- `docs/evidence/platform-tests-2026-10-18/`: full automated run, 216/216 passed. 217/217 after the dashboard review fixes.
+- CI job `windows-deploy`: the Windows package and the full suite on real Windows. First green run: https://github.com/barel1296/barels/actions/runs/39137945926
+- `docs/evidence/dashboard-demo-2026-10-18/`: screenshots of every dashboard screen with demo data, a walkthrough, and the frontend features not yet implemented.
 - `docs/evidence/m10-windows-package/`: every deployment script run under PowerShell 7 on Linux, plus the bugs that exercise found and fixed.
 - `docs/evidence/phase1-vertical-slice/`: the Phase 1 slice and conformance against the contract mock.
 

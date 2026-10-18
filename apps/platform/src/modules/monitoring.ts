@@ -32,14 +32,17 @@ export function parseNvidiaSmiCsv(out: string): GpuSample[] {
     .filter(Boolean)
     .map((line) => {
       const f = line.split(',').map((x) => x.trim());
+      // The name is the only free-text field: read the five numbers from the end, so a comma in a
+      // name cannot shift them into the wrong columns.
+      const n = f.length > 7 ? f.slice(-5) : f.slice(2);
       return {
         gpu_index: Number(f[0] ?? 0),
-        gpu_name: f[1] ?? null,
-        util_pct: numOrNull(f[2]),
-        vram_used_mb: numOrNull(f[3]),
-        vram_total_mb: numOrNull(f[4]),
-        temp_c: numOrNull(f[5]),
-        power_w: numOrNull(f[6]),
+        gpu_name: (f.length > 7 ? f.slice(1, -5).join(', ') : f[1]) ?? null,
+        util_pct: numOrNull(n[0]),
+        vram_used_mb: numOrNull(n[1]),
+        vram_total_mb: numOrNull(n[2]),
+        temp_c: numOrNull(n[3]),
+        power_w: numOrNull(n[4]),
       };
     })
     .filter((s) => Number.isInteger(s.gpu_index));

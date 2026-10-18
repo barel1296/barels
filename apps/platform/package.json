@@ -2,7 +2,7 @@
   "name": "@golden-influencer/platform",
   "version": "0.1.0",
   "private": true,
-  "description": "Golden Influencer platform (Track B): modular monolith — API, workers, visual engine gateway",
+  "description": "Golden Influencer platform (Track B): modular monolith \u2014 API, workers, visual engine gateway",
   "type": "module",
   "engines": {
     "node": ">=22.12"
@@ -20,7 +20,9 @@
     "test:integration": "node --import tsx --test --test-concurrency=1 --test-reporter=spec \"test/integration/**/*.test.ts\"",
     "test:e2e": "node --import tsx --test --test-concurrency=1 --test-reporter=spec \"test/e2e/**/*.test.ts\"",
     "comfy-bridge": "tsx src/comfy-bridge/main.ts",
-    "simulators": "tsx src/simulators/main.ts"
+    "simulators": "tsx src/simulators/main.ts",
+    "demo": "tsx scripts/demo.ts",
+    "demo:screenshots": "tsx scripts/demo-screenshots.ts"
   },
   "dependencies": {
     "ajv": "8.20.0",

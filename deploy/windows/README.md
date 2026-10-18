@@ -5,8 +5,18 @@ This folder installs and operates the platform on the Windows workstation that *
 > **Status of this package.**
 > - All scripts parse under PowerShell 7.4.
 > - The cross-platform parts were **executed under PowerShell 7.4 on Linux**, against a fresh PostgreSQL 16 cluster and the repository's **simulated** ComfyUI and LLM servers: install, migrate, run-service, discovery, health-check, conformance, llm-bench, integration-test, backup, restore (Test and Replace) and gpu-monitor (with a simulated `nvidia-smi`). The evidence is in [`docs/evidence/m10-windows-package/`](../../docs/evidence/m10-windows-package/README.md).
-> - **Nothing has been executed on Windows yet.** The Windows-only parts were not run anywhere: scheduled tasks, the process/port scan of ComfyUI, `icacls`, `robocopy`, and Windows PowerShell 5.1 itself.
-> - The first run on the workstation is the real test. Follow [ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md).
+> - **CI runs the whole package on real Windows** on every push (job `windows-deploy`, GitHub's `windows-latest` runner, Windows PowerShell 5.1). It covers:
+>   - PostgreSQL 16 as a Windows service;
+>   - `install.ps1`, run twice;
+>   - the services as real Task Scheduler tasks (S4U);
+>   - discovery, health, conformance and the LLM bench;
+>   - the integration test with one generation;
+>   - backup, a test restore and a Replace restore;
+>   - task removal;
+>   - the full automated test suite on Windows.
+>
+>   ComfyUI and the LLM are the simulators there, and there is no GPU. First green run: [39137945926](https://github.com/barel1296/barels/actions/runs/39137945926).
+> - **Still not executed: the workstation itself.** That means its hardware, the real ComfyUI, a real model and NVIDIA tooling. The first run there is the real test. Follow [ACCEPTANCE-TESTS.md](ACCEPTANCE-TESTS.md).
 
 ## What it installs, and what it never touches
 

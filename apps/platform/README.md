@@ -329,6 +329,22 @@ On the workstation, `deploy/windows/backup.ps1` and `restore.ps1` do this (verif
 - The worker logs `[worker:<loop>]` errors.
 - Every state change is also in `core.audit_log`, which is append-only for the runtime roles.
 
+## Local demo (visual review of the dashboard)
+
+`npm run demo` starts the real platform build against a separate database on a **development** PostgreSQL server. All external systems are simulated, in-process: Telegram (including Stars), Instagram, the LLM, and ComfyUI behind the real bridge. It then seeds a demo influencer, "Luna Vale", through the API, covering persona, media, content, plans, fans, chats, payments and analytics.
+
+```bash
+npm run build
+npm run demo -- --admin-url postgres://postgres:<pw>@127.0.0.1:5432/postgres --out /tmp/golden-demo --reset
+# → http://127.0.0.1:8090/admin/ ; sign-in details in /tmp/golden-demo/demo-credentials.txt (mode 600, never printed)
+npm run demo:screenshots -- --out /tmp/golden-demo   # full-page PNGs of every screen (real Chromium)
+```
+
+- It refuses non-loopback servers.
+- It resets the `aios_*` role passwords on the server it is given, so use a development server only.
+
+The latest screenshots and the list of frontend gaps are in [`docs/evidence/dashboard-demo-2026-10-18/`](../../docs/evidence/dashboard-demo-2026-10-18/README.md).
+
 ## Tests
 
 The tests need a PostgreSQL 16 superuser connection. Each test file creates its own throwaway database, with roles from `db/bootstrap.sql`.

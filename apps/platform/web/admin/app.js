@@ -516,7 +516,7 @@ async function calendarPage(view, id) {
       ),
     );
   }
-  view.append(h('h2', {}, 'Plans'), h('div', { class: 'panel' }, table(cal.plans, [{ label: 'Period', render: (r) => `${r.period_start} – ${r.period_end}` }, { label: 'Status', render: (r) => badge(r.status, tone(r.status)) }, { label: 'By', render: (r) => `${r.created_by_type}:${r.created_by_id}` }, { label: 'Notes', key: 'strategy_notes' }])));
+  view.append(h('h2', {}, 'Plans'), h('div', { class: 'panel' }, table(cal.plans, [{ label: 'Period', render: (r) => `${String(r.period_start).slice(0, 10)} – ${String(r.period_end).slice(0, 10)}` }, { label: 'Status', render: (r) => badge(r.status, tone(r.status)) }, { label: 'By', render: (r) => `${r.created_by_type}:${r.created_by_id}` }, { label: 'Notes', key: 'strategy_notes' }])));
   view.append(
     h('h2', {}, 'Items'),
     h(
@@ -695,7 +695,9 @@ async function moneyPage(view, id) {
             render: (r) =>
               r.status === 'pending_approval' &&
               can('refund.approve') &&
-              h('div', { class: 'row' }, h('button', { onclick: () => act(() => api('POST', `/v1/refunds/${r.id}/approve`, {}), 'Refund approved') }, 'Approve'), h('button', { class: 'secondary', onclick: () => act(() => api('POST', `/v1/refunds/${r.id}/reject`, { note: 'rejected in dashboard' }), 'Refund rejected') }, 'Reject')),
+              (r.requested_by_user === state.session.user.id
+                ? h('span', { class: 'muted' }, 'awaiting another approver')
+                : h('div', { class: 'row' }, h('button', { onclick: () => act(() => api('POST', `/v1/refunds/${r.id}/approve`, {}), 'Refund approved') }, 'Approve'), h('button', { class: 'secondary', onclick: () => act(() => api('POST', `/v1/refunds/${r.id}/reject`, { note: 'rejected in dashboard' }), 'Refund rejected') }, 'Reject'))),
           },
         ],
       ),
@@ -760,7 +762,7 @@ function alertsTable(rows) {
     { label: 'Severity', render: (r) => badge(r.severity, tone(r.severity === 'warning' ? 'medium' : r.severity)) },
     { label: 'Code', key: 'code' },
     { label: 'Message', key: 'message' },
-    { label: 'Since', render: (r) => when(r.first_seen_at ?? r.created_at) },
+    { label: 'Since', render: (r) => when(r.opened_at) },
     { label: '', render: (r) => h('div', { class: 'row' }, h('button', { class: 'secondary', onclick: () => act(() => api('POST', `/v1/ops/alerts/${r.id}/ack`), 'Acknowledged') }, 'Ack'), h('button', { onclick: () => act(() => api('POST', `/v1/ops/alerts/${r.id}/resolve`), 'Resolved') }, 'Resolve')) },
   ]);
 }

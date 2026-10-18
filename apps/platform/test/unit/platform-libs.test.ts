@@ -17,6 +17,11 @@ describe('nvidia-smi parsing', () => {
     assert.equal(s[1]!.util_pct, null);
     assert.equal(s[1]!.power_w, null);
   });
+
+  it('keeps the numbers in place when a GPU name contains a comma', () => {
+    const [s] = parseNvidiaSmiCsv('0, Some GPU (rev 2, OEM), 64, 16680, 24463, 71, 124.0\n');
+    assert.deepEqual(s, { gpu_index: 0, gpu_name: 'Some GPU (rev 2, OEM)', util_pct: 64, vram_used_mb: 16680, vram_total_mb: 24463, temp_c: 71, power_w: 124 });
+  });
 });
 
 describe('LLM output handling', () => {

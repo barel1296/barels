@@ -10,6 +10,8 @@ The scripts in [`deploy/windows/`](../../../deploy/windows/README.md) were execu
 
 The test driver (a scratch shell script, not part of the repository) called each script exactly as a person would, and captured its output and exit code.
 
+> **Update:** CI now runs the same chain on a real Windows runner on every push (GitHub `windows-latest`, Windows PowerShell 5.1, Task Scheduler, a PostgreSQL 16 service), plus the full test suite on Windows. First green run: [39137945926](https://github.com/barel1296/barels/actions/runs/39137945926). The first Windows run found that processes started by a CI step die when the step ends; the job now starts the simulators through WMI. That run also found discovery matching its own PowerShell process; this is fixed. The statements below describe the Linux run.
+
 ## What this is NOT
 
 - **Not Windows.** Windows PowerShell 5.1, scheduled tasks, the CIM/`Get-NetTCPConnection` scan for ComfyUI processes, `icacls` and `robocopy` were **not executed** anywhere. On Linux the scripts take their `chmod`/copy code paths instead.
