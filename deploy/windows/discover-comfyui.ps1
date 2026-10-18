@@ -35,7 +35,10 @@ $ports = New-Object System.Collections.Generic.List[int]
 $ports.Add(8188)
 if ($script:IsWin) {
   try {
-    $procs = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and ($_.CommandLine -match 'ComfyUI|comfyui' -or ($_.Name -match 'python' -and $_.CommandLine -match 'main\.py')) })
+    # Our own scripts (this one included) mention "comfyui" in their command lines; they are not ComfyUI.
+    $procs = @(Get-CimInstance Win32_Process | Where-Object {
+        $_.ProcessId -ne $PID -and $_.CommandLine -and $_.CommandLine -notmatch 'deploy[\\/]windows[\\/]' -and
+        ($_.CommandLine -match 'ComfyUI|comfyui' -or ($_.Name -match 'python' -and $_.CommandLine -match 'main\.py')) })
     foreach ($p in $procs) {
       $listen = @(Get-NetTCPConnection -OwningProcess $p.ProcessId -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty LocalPort -Unique)
       foreach ($lp in $listen) { if (-not $ports.Contains([int]$lp)) { $ports.Add([int]$lp) } }
