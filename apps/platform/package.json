@@ -23,7 +23,8 @@
     "simulators": "tsx src/simulators/main.ts",
     "demo": "tsx scripts/demo.ts",
     "demo:screenshots": "tsx scripts/demo-screenshots.ts",
-    "demo:totp": "tsx scripts/demo-totp.ts"
+    "demo:totp": "tsx scripts/demo-totp.ts",
+    "demo:snapshot": "tsx scripts/demo-snapshot.ts"
   },
   "dependencies": {
     "ajv": "8.20.0",

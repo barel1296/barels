@@ -14,6 +14,14 @@ Everything external is **simulated** inside the demo process:
 
 It never contacts Telegram, Meta, a model, the RTX 5090 workstation or any production system.
 
+## Quickest look: a recorded snapshot (read-only)
+
+While the demo is running, `npm run demo:snapshot -- --out ../../.demo --dest <file.html>` (in `apps/platform`) records every screen into **one HTML file**: the unchanged dashboard code plus the data it showed.
+
+- The file needs no server, database or network. It can be opened anywhere, for example as a private page on claude.ai.
+- Every screen opens, but changes are refused with "changes are not saved", and the sign-in screen accepts any details.
+- Values under secret-looking fields (token, secret, password, csrf) are removed while recording.
+
 ## Option A: private HTTPS preview in GitHub Codespaces (recommended)
 
 GitHub Codespaces runs the repository's dev container (`.devcontainer/`). It is free within the monthly Codespaces quota of personal GitHub accounts; with the default spending limit of $0, nothing beyond the quota is billed. You get an HTTPS URL that **only you** can open, behind two logins: GitHub, then the dashboard.

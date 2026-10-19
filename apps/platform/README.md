@@ -344,6 +344,7 @@ npm run demo -- --admin-url postgres://postgres:<pw>@127.0.0.1:5432/postgres --o
 # → http://127.0.0.1:8090/admin/ ; sign-in details in /tmp/golden-demo/demo-credentials.txt (mode 600, never printed)
 npm run demo:totp -- --out /tmp/golden-demo          # the current 6-digit sign-in code
 npm run demo:screenshots -- --out /tmp/golden-demo   # full-page PNGs of every screen (real Chromium)
+npm run demo:snapshot -- --out /tmp/golden-demo      # one read-only HTML file of every screen, openable anywhere
 ```
 
 - It refuses database servers that are not on loopback, unless they are listed in `DEMO_ALLOWED_DB_HOSTS`.
